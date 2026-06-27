@@ -1,0 +1,23 @@
+{
+  "name": "@ruanhor/bedgame",
+  "description": "起床战争 mcaddon",
+  "version": "0.0.1",
+  "packageManager": "pnpm",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "scripts": {
+    "dev": "mbler watch",
+    "build": "mcx-tsc && BUILD_MODULE=release mbler build",
+    "dev-build": "mbler build"
+  },
+  "type": "module",
+  "dependencies": {
+    "@minecraft/server": "2.0.0",
+    "@mbler/mcx": "0.0.3-alpha.r1"
+  },
+  "devDependencies": {
+    "mbler": "latest",
+    "@mbler/mcx-core": "latest"
+  }
+}

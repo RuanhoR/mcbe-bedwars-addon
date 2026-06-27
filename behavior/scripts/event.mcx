@@ -1,0 +1,9 @@
+<Event @after>
+itemUse = onUseItem
+</Event>
+<script lang="ts">
+import { ItemUseAfterEvent, world } from "@minecraft/server";
+export function onUseItem(event: ItemUseAfterEvent) {
+  console.log("itemUse")
+}
+</script>
