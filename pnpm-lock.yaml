@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       '@mbler/mcx':
-        specifier: 0.0.4-rc.2
-        version: 0.0.4-rc.2
+        specifier: 0.0.4-rc.4
+        version: 0.0.4-rc.4
       '@mbler/mcx-component':
         specifier: 0.0.0-alpha.2
         version: 0.0.0-alpha.2(@minecraft/vanilla-data@1.26.32)
@@ -22,11 +22,14 @@ importers:
         specifier: 0.1.2-rc.9
         version: 0.1.2-rc.9(@minecraft/vanilla-data@1.26.32)(rolldown@1.0.0-rc.18)(rollup@4.59.0)
       '@minecraft/server':
-        specifier: 2.0.0
-        version: 2.0.0(@minecraft/vanilla-data@1.26.32)
+        specifier: 2.9.0-beta.1.26.31-stable
+        version: 2.9.0-beta.1.26.31-stable(@minecraft/common@1.3.0)(@minecraft/vanilla-data@1.26.32)
       '@minecraft/server-ui':
-        specifier: ^2.1.0
-        version: 2.1.0(@minecraft/common@1.3.0)(@minecraft/server@2.0.0(@minecraft/vanilla-data@1.26.32))
+        specifier: 2.2.0-beta.1.26.31-stable
+        version: 2.2.0-beta.1.26.31-stable(@minecraft/common@1.3.0)(@minecraft/server@2.9.0-beta.1.26.31-stable(@minecraft/common@1.3.0)(@minecraft/vanilla-data@1.26.32))
+      '@types/node':
+        specifier: ^26.0.1
+        version: 26.0.1
       cross-env:
         specifier: ^10.1.0
         version: 10.1.0
@@ -90,12 +93,6 @@ packages:
     resolution: {integrity: sha512-94+CudsXyy2x1ryzHinvKKUUb6kTKhKBD1F9obThKfM1KdmpA9dwbt7Jmdq8pY2eOnemhFD3SG/bD/Dzi3sZng==}
     engines: {node: '>=20'}
 
-  '@mbler/mcx-core@0.1.2':
-    resolution: {integrity: sha512-jkswI/SihiDX7pgvN6Z2xhI+J4VIHbzX81Mg4T4vLeBTFelrclWbJhVh9MRMTKj1Nj6jzPMcWNyu6kGCkK6lrQ==}
-    peerDependencies:
-      rolldown: 1.0.0-rc.18
-      rollup: 4.59.0
-
   '@mbler/mcx-core@0.1.2-rc.9':
     resolution: {integrity: sha512-pjY15R0GfG4u2vARoY45GaF9lngTyO3eCTgVsNGIAxxbLdXWkpzheyV9zRqSweAKNR4g5yxHNAAehS2PwaUAsQ==}
     peerDependencies:
@@ -106,9 +103,6 @@ packages:
     resolution: {integrity: sha512-F71XgCoJZAEXS8pOYciwtSSs0aopyUAtrdrXrZQ/jjjqDoHAPYm29LXFaAu9TWgF9besZyBD/i1WwQgmupTQ+g==}
     engines: {node: '>=20'}
     hasBin: true
-
-  '@mbler/mcx-types@0.0.4':
-    resolution: {integrity: sha512-YO4wihx34mOus8ZxnewPjpBCyZI/qyzQfmzkMFBDnKukgmc0O2itEmOqS7G5IBsA6a/yhU1tRduD4fMXnH/1ww==}
 
   '@mbler/mcx-types@0.0.4-rc.1':
     resolution: {integrity: sha512-ay1m67dRZHDD/QCEbAOJD7jtuO+z6wLgvpW9ZhOMxs+78mcaRZNu9eElmfcYXk7N4nlnLGGV8pJ5JaA8FWmPNA==}
@@ -121,8 +115,8 @@ packages:
     resolution: {integrity: sha512-EkTbCzJamuAR+Fk7SpyciBcyXo+r6YCt64pK5UHknafgAY5fP7YKU+DhbEgIsOpB02tgNoy/MsRwubgeCJPS7A==}
     engines: {node: '>=20'}
 
-  '@mbler/mcx@0.0.4-rc.2':
-    resolution: {integrity: sha512-eLEmWVRVGbXwsFwqGKulYhGDVI3ZMrGO/+NRjse35dxVgSgD8HAfyq+pQFiWLuU4LlU1Y4RFGaatA4T8UckKig==}
+  '@mbler/mcx@0.0.4-rc.4':
+    resolution: {integrity: sha512-G4Zx57gg456BPx3t6n8V+ldSb8m783GUQC8xyykvRXNNC8SKZnMd09AMCJg0VM1vOHuqVtloZBOZnt8nhxAvCg==}
     engines: {node: '>=20'}
 
   '@minecraft/common@1.3.0':
@@ -131,15 +125,21 @@ packages:
   '@minecraft/server-ui@2.0.0':
     resolution: {integrity: sha512-K1xFK1OEJSNfIgyRElaoxDTW/nbEqjBp1YnUdyPCs4kGDglwoXNyFz3wzMOkvT04CJXSifZGcTJeWda4C6OkXw==}
 
-  '@minecraft/server-ui@2.1.0':
-    resolution: {integrity: sha512-7zXyqK6HI62aH0RlfObLitBc7EldpoAH3AeC8JWOaI6CCNoCi2DG2U78ELdq+NrUIjvCE87Bix/I+hgXsQ5AdA==}
+  '@minecraft/server-ui@2.2.0-beta.1.26.31-stable':
+    resolution: {integrity: sha512-L329OA6ggUIBKp+SwztJXJicgW8lPznIyKZ3WW5K4dzD+s5sScg2yer6dreQzVp/0sr2tSQ0shOZ7H1s2C6c1w==}
     peerDependencies:
       '@minecraft/common': ^1.0.0
-      '@minecraft/server': ^2.0.0
+      '@minecraft/server': ^2.0.0 || ^2.9.0-beta.1.26.31-stable
 
   '@minecraft/server@2.0.0':
     resolution: {integrity: sha512-X2LmT82eO0oCjOFaFgg6zoGenAUSyrG+YvIbe7/FSPj9hpMt4BtOIs7axoQUUvMx2NNbq8uEsnQadMMrDDBmUA==}
     peerDependencies:
+      '@minecraft/vanilla-data': '>=1.20.70'
+
+  '@minecraft/server@2.9.0-beta.1.26.31-stable':
+    resolution: {integrity: sha512-4AQz1OZTfvnBKBLADvVcjV5NBRJaf3WsGt2VEaYwuD76NX6ja78FbT7fJQRrpgtDewvD/m9ZbvrafbOxJuiz8w==}
+    peerDependencies:
+      '@minecraft/common': ^1.2.0
       '@minecraft/vanilla-data': '>=1.20.70'
 
   '@minecraft/vanilla-data@1.26.32':
@@ -396,6 +396,9 @@ packages:
   '@types/estree@1.0.8':
     resolution: {integrity: sha512-dWHzHa2WqEXI/O1E9OjrocMTKJl2mSrEolh1Iomrv6U+JuNwaHXsXx9bLu5gG7BUWFIN0skIQJQ/L1rIex4X6w==}
 
+  '@types/node@26.0.1':
+    resolution: {integrity: sha512-fc3KiUoBt6kie0N9bIW3E47vZsuaMf0PM2AaUpLCLT0s/LvX1nxAim6Fc049cNxODPpGm6qRAuUOB86SkRuPQw==}
+
   '@volar/language-core@2.4.28':
     resolution: {integrity: sha512-w4qhIJ8ZSitgLAkVay6AbcnC7gP3glYM3fYwKV3srj8m494E3xtrCv6E+bWviiK/8hs6e6t1ij1s2Endql7vzQ==}
 
@@ -496,6 +499,9 @@ packages:
     resolution: {integrity: sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw==}
     engines: {node: '>=14.17'}
     hasBin: true
+
+  undici-types@8.3.0:
+    resolution: {integrity: sha512-j375ScV60dom+YkPFIfTLcOiPxkN/buHz5GobjLhixFuANaNs3C9l4GmrWqejgXWJ7BbJcFYpTEUkS1Ge8bpZQ==}
 
   volar-service-typescript@0.0.70:
     resolution: {integrity: sha512-l46Bx4cokkUedTd74ojO5H/zqHZJ8SUuyZ0IB8JN4jfRqUM3bQFBHoOwlZCyZmOeO0A3RQNkMnFclxO4c++gsg==}
@@ -610,20 +616,6 @@ snapshots:
     transitivePeerDependencies:
       - '@minecraft/vanilla-data'
 
-  '@mbler/mcx-core@0.1.2(@minecraft/vanilla-data@1.26.32)(rolldown@1.0.0-rc.18)(rollup@4.59.0)':
-    dependencies:
-      '@babel/generator': 7.28.5
-      '@babel/parser': 7.28.5
-      '@babel/types': 7.28.6
-      '@mbler/mcx-types': 0.0.4-rc.1(@minecraft/vanilla-data@1.26.32)
-      '@volar/language-core': 2.4.28
-      magic-string: 0.30.21
-      rolldown: 1.0.0-rc.18
-      rollup: 4.59.0
-      typescript: 5.9.3
-    transitivePeerDependencies:
-      - '@minecraft/vanilla-data'
-
   '@mbler/mcx-core@0.1.2-rc.9(@minecraft/vanilla-data@1.26.32)(rolldown@1.0.0-rc.18)(rollup@4.59.0)':
     dependencies:
       '@babel/generator': 7.28.5
@@ -642,8 +634,8 @@ snapshots:
   '@mbler/mcx-server@0.1.2-rc.1(@minecraft/vanilla-data@1.26.32)(@volar/language-service@2.4.28)(rolldown@1.0.0-rc.18)(rollup@4.59.0)':
     dependencies:
       '@mbler/mcx': 0.0.4-rc.1
-      '@mbler/mcx-core': 0.1.2(@minecraft/vanilla-data@1.26.32)(rolldown@1.0.0-rc.18)(rollup@4.59.0)
-      '@mbler/mcx-types': 0.0.4(@minecraft/vanilla-data@1.26.32)
+      '@mbler/mcx-core': 0.1.2-rc.9(@minecraft/vanilla-data@1.26.32)(rolldown@1.0.0-rc.18)(rollup@4.59.0)
+      '@mbler/mcx-types': 0.0.4-rc.2(@minecraft/vanilla-data@1.26.32)
       '@volar/language-core': 2.4.28
       '@volar/language-server': 2.4.28
       typescript: 5.9.3
@@ -654,13 +646,6 @@ snapshots:
       - '@volar/language-service'
       - rolldown
       - rollup
-
-  '@mbler/mcx-types@0.0.4(@minecraft/vanilla-data@1.26.32)':
-    dependencies:
-      '@minecraft/server': 2.0.0(@minecraft/vanilla-data@1.26.32)
-      '@volar/language-core': 2.4.28
-    transitivePeerDependencies:
-      - '@minecraft/vanilla-data'
 
   '@mbler/mcx-types@0.0.4-rc.1(@minecraft/vanilla-data@1.26.32)':
     dependencies:
@@ -680,7 +665,7 @@ snapshots:
 
   '@mbler/mcx@0.0.4-rc.1': {}
 
-  '@mbler/mcx@0.0.4-rc.2': {}
+  '@mbler/mcx@0.0.4-rc.4': {}
 
   '@minecraft/common@1.3.0': {}
 
@@ -691,12 +676,17 @@ snapshots:
     transitivePeerDependencies:
       - '@minecraft/vanilla-data'
 
-  '@minecraft/server-ui@2.1.0(@minecraft/common@1.3.0)(@minecraft/server@2.0.0(@minecraft/vanilla-data@1.26.32))':
+  '@minecraft/server-ui@2.2.0-beta.1.26.31-stable(@minecraft/common@1.3.0)(@minecraft/server@2.9.0-beta.1.26.31-stable(@minecraft/common@1.3.0)(@minecraft/vanilla-data@1.26.32))':
     dependencies:
       '@minecraft/common': 1.3.0
-      '@minecraft/server': 2.0.0(@minecraft/vanilla-data@1.26.32)
+      '@minecraft/server': 2.9.0-beta.1.26.31-stable(@minecraft/common@1.3.0)(@minecraft/vanilla-data@1.26.32)
 
   '@minecraft/server@2.0.0(@minecraft/vanilla-data@1.26.32)':
+    dependencies:
+      '@minecraft/common': 1.3.0
+      '@minecraft/vanilla-data': 1.26.32
+
+  '@minecraft/server@2.9.0-beta.1.26.31-stable(@minecraft/common@1.3.0)(@minecraft/vanilla-data@1.26.32)':
     dependencies:
       '@minecraft/common': 1.3.0
       '@minecraft/vanilla-data': 1.26.32
@@ -844,6 +834,10 @@ snapshots:
     optional: true
 
   '@types/estree@1.0.8': {}
+
+  '@types/node@26.0.1':
+    dependencies:
+      undici-types: 8.3.0
 
   '@volar/language-core@2.4.28':
     dependencies:
@@ -996,6 +990,8 @@ snapshots:
       semver: 7.8.5
 
   typescript@5.9.3: {}
+
+  undici-types@8.3.0: {}
 
   volar-service-typescript@0.0.70(@volar/language-service@2.4.28):
     dependencies:
