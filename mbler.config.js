@@ -10,5 +10,5 @@ export default defineConfig({
   minify: "oxc",
   script: { main: 'index.ts', ui: true, lang: 'mcx', UseBeta: false },
   build: { bundle: true, cache: "file" },
-  outdir: { resources: "C:\\Users\\zcvb1\\AppData\\Roaming\\Minecraft Bedrock\\users\\shared\\games\\com.mojang\\behavior_packs", behavior: "C:\\Users\\zcvb1\\AppData\\Roaming\\Minecraft Bedrock\\users\\shared\\games\\com.mojang\\behavior_packs", dist: './dist.mcaddon' }
+  outdir: { resources: "./dist/res", behavior: "./dist/dep", dist: './dist.mcaddon' }
 });

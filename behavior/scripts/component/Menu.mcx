@@ -1,18 +1,20 @@
 <Component>
   <items>
-    <item id="test.json">item</item>
+    <item id="bedwar-menu.json">item</item>
   </items>
 </Component>
 <script lang="ts">
 import { ItemComponent } from "@mbler/mcx-component";
 import { component } from "./../config/config.json"
-import MenuIcon from "./../assets/menu_icon.png"
+import MenuIcon from "./../assets/menu_icon.png";
 const item = new ItemComponent({
-  id: "bedgame-ruanhor:menu",
+  id: "bedwars:menu",
   name: "Menu",
   format: component.format,
   components: {}
 });
+
+
 item.setMaxStackSize(1);
 item.setIcon(MenuIcon)
 export {

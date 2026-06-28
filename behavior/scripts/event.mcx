@@ -2,8 +2,13 @@
 itemUse = onUseItem
 </Event>
 <script lang="ts">
-import { ItemUseAfterEvent, world } from "@minecraft/server";
+import { ItemUseAfterEvent, Structure, world } from "@minecraft/server";
+import uiMCX from "./form/main.mcx"
 export function onUseItem(event: ItemUseAfterEvent) {
   console.log("itemUse")
+  if (event.itemStack.typeId == "bedwars:menu") {
+    world.structureManager.place("brige_center", event.source.dimension, event.source.location)
+    uiMCX.app.ui.show(event.source, { b: [1, 2, 3, 4] });
+  }
 }
 </script>
