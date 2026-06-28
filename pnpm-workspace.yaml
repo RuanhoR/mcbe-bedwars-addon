@@ -1,0 +1,6 @@
+minimumReleaseAgeExclude:
+  - '@mbler/mcx-core@0.1.2-rc.9'
+  - '@mbler/mcx-server@0.1.2-rc.1'
+  - '@mbler/mcx-types@0.0.4-rc.2'
+  - '@mbler/mcx@0.0.4-rc.1'
+  - mbler@0.2.8-rc.7

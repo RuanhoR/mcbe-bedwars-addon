@@ -1,23 +1,25 @@
 {
-  "name": "@ruanhor/bedgame",
+  "name": "@ruanhor/bed-wars",
   "description": "起床战争 mcaddon",
   "version": "0.0.1",
-  "packageManager": "pnpm",
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=20.0.0"
   },
   "scripts": {
     "dev": "mbler watch",
-    "build": "mcx-tsc && BUILD_MODULE=release mbler build",
+    "build": "mcx-tsc && cross-env BUILD_MODULE=release mbler build",
     "dev-build": "mbler build"
   },
   "type": "module",
   "dependencies": {
-    "@minecraft/server": "2.0.0",
-    "@mbler/mcx": "0.0.3-alpha.r1"
+    "@mbler/mcx": "0.0.4-rc.1",
+    "@mbler/mcx-component": "0.0.0-alpha.1",
+    "@mbler/mcx-types": "0.0.4-rc.2",
+    "@minecraft/server": "2.0.0"
   },
   "devDependencies": {
-    "mbler": "latest",
-    "@mbler/mcx-core": "latest"
+    "@mbler/mcx-core": "0.1.2-rc.9",
+    "cross-env": "^10.1.0",
+    "mbler": "0.2.8-rc.7"
   }
 }

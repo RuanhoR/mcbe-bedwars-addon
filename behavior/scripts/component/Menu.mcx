@@ -4,7 +4,7 @@
   </items>
 </Component>
 <script lang="ts">
-import { ItemComponent } from "@mbler/mcx-core";
+import { ItemComponent } from "@mbler/mcx-component";
 import { component } from "./../config/config.json"
 import MenuIcon from "./../assets/menu_icon.png"
 const item = new ItemComponent({

@@ -1,9 +1,14 @@
+// @ts-check
+
 import { defineConfig } from "mbler"
 export default defineConfig({
   description: '起床战争 mcaddon',
   mcVersion: '1.26.31',
-  minify: false,
+  name: "@ruanhor/bed-wars",
+  version: "0.0.1",
+  displayName: "起床战争.mcaddon",
+  minify: "oxc",
   script: { main: 'index.ts', ui: true, lang: 'mcx', UseBeta: false },
   build: { bundle: true, cache: "file" },
-  outdir: { resources: './dist/res', behavior: './dist/dep', dist: './dist.mcaddon' }
+  outdir: { resources: "C:\\Users\\zcvb1\\AppData\\Roaming\\Minecraft Bedrock\\users\\shared\\games\\com.mojang\\behavior_packs", behavior: "C:\\Users\\zcvb1\\AppData\\Roaming\\Minecraft Bedrock\\users\\shared\\games\\com.mojang\\behavior_packs", dist: './dist.mcaddon' }
 });
