@@ -123,11 +123,13 @@ class GameManager {
     player.setDynamicProperty(PLAYER_IS_ALIVE_KEY, true);
     player.setDynamicProperty(PLAYER_IS_SPECTATOR_KEY, false);
 
-    const dim = world.getDimension("overworld");
     const initX = inst.initIslandX;
     const initZ = inst.initIslandZ;
-    player.teleport({ x: initX, y: MAP_Y + 5, z: initZ }, { dimension: dim });
-    player.setGameMode(GameMode.Adventure);
+    system.run(() => {
+      const dim = world.getDimension("overworld");
+      player.teleport({ x: initX, y: MAP_Y + 5, z: initZ }, { dimension: dim });
+      player.setGameMode(GameMode.Adventure);
+    });
 
     const totalPlayers = inst.teams.reduce((s, T) => s + T.players.length, 0);
     world.sendMessage(t("playerJoined", { name: player.name, current: String(totalPlayers), total: String(inst.totalPlayers) }));
@@ -148,30 +150,29 @@ class GameManager {
     this._runningGames.add(instanceId);
 
     InstanceManager.setInstanceStatus(instanceId, "playing");
-    const dim = world.getDimension("overworld");
+
     const centerX = inst.x;
     const centerZ = inst.z;
 
-    for (const team of inst.teams) {
-      for (const playerId of team.players) {
-        const player = world.getEntity(playerId) as Player;
-        if (!player) continue;
-        player.setGameMode(GameMode.Survival);
-        player.setDynamicProperty(PLAYER_IS_ALIVE_KEY, true);
-
-        player.addEffect("regeneration", 100, { amplifier: 255, showParticles: false });
-
-        if (team.bedPosition) {
-          const bedPos = { x: team.bedPosition.x, y: team.bedPosition.y + 1, z: team.bedPosition.z };
-          player.teleport(bedPos, { dimension: dim });
-        } else {
-          player.teleport({ x: centerX, y: MAP_Y + 5, z: centerZ }, { dimension: dim });
+    system.run(() => {
+      const dim = world.getDimension("overworld");
+      for (const team of inst.teams) {
+        for (const playerId of team.players) {
+          const player = world.getEntity(playerId) as Player;
+          if (!player) continue;
+          player.setGameMode(GameMode.Survival);
+          player.setDynamicProperty(PLAYER_IS_ALIVE_KEY, true);
+          player.addEffect("regeneration", 100, { amplifier: 255, showParticles: false });
+          if (team.bedPosition) {
+            player.teleport({ x: team.bedPosition.x, y: team.bedPosition.y + 1, z: team.bedPosition.z }, { dimension: dim });
+          } else {
+            player.teleport({ x: centerX, y: MAP_Y + 5, z: centerZ }, { dimension: dim });
+          }
+          player.sendMessage(t("gameStarted"));
+          this._spawnShopBee(player, team);
         }
-
-        player.sendMessage(t("gameStarted"));
-        this._spawnShopBee(player, team);
       }
-    }
+    });
 
     world.sendMessage(t("gameStartBroadcast", { name: inst.name }));
   }
@@ -206,25 +207,21 @@ class GameManager {
     }
   }
 
-  static async endGame(instanceId: string) {
+  static endGame(instanceId: string) {
     const inst = InstanceManager.getInstance(instanceId);
     if (!inst) return;
     this._runningGames.delete(instanceId);
     InstanceManager.setInstanceStatus(instanceId, "idle");
 
-    const dim = world.getDimension("overworld");
-
     const centerX = inst.x;
     const centerZ = inst.z;
+    const playerIds: string[] = [];
 
     for (const team of inst.teams) {
       for (const playerId of team.players) {
+        playerIds.push(playerId);
         const player = world.getEntity(playerId) as Player;
         if (!player) continue;
-        player.addEffect("regeneration", 100, { amplifier: 255, showParticles: false });
-        player.teleport({ x: centerX, y: MAP_Y + 5, z: centerZ }, { dimension: dim });
-        player.setGameMode(GameMode.Adventure);
-        player.sendMessage(t("gameEnded"));
         player.setDynamicProperty(PLAYER_TEAM_KEY, undefined);
         player.setDynamicProperty(PLAYER_INSTANCE_KEY, undefined);
         player.setDynamicProperty(PLAYER_IS_ALIVE_KEY, undefined);
@@ -233,7 +230,20 @@ class GameManager {
       team.players = [];
     }
 
-    await InstanceManager.clearInstanceMap(dim, instanceId);
+    system.runJob((function*() {
+      const dim = world.getDimension("overworld");
+      for (const playerId of playerIds) {
+        const player = world.getEntity(playerId) as Player;
+        if (!player) continue;
+        player.addEffect("regeneration", 100, { amplifier: 255, showParticles: false });
+        player.teleport({ x: centerX, y: MAP_Y + 5, z: centerZ }, { dimension: dim });
+        player.setGameMode(GameMode.Adventure);
+        player.sendMessage(t("gameEnded"));
+      }
+      yield;
+      InstanceManager.clearInstanceMap(dim, instanceId);
+    })());
+
     world.sendMessage(t("gameEndBroadcast", { name: inst.name }));
   }
 

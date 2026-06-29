@@ -1,7 +1,7 @@
 import { Player, world, Dimension, system } from "@minecraft/server";
 import { WorldDynamicPropertyKeys, BedwarsInstanceData, BedwarsGlobalData, BedwarsTeamData, TeamColor, TEAM_COLORS } from "../types";
 import { MAP_Y, getMapLayout, STRUCTURES } from "./config";
-import { fillAir, chunkedFillAir, getStructureBounds, sleepTicks } from "../utils/worldEditUtils";
+import { fillAir, getStructureBounds, sleepTicks } from "../utils/worldEditUtils";
 import { t } from "../i18n/locals";
 
 class InstanceManager {
@@ -127,35 +127,37 @@ class InstanceManager {
     sender.teleport({ x: x, y: MAP_Y + 5, z: z }, { dimension });
   }
 
-  static removeStructureBlocks(dimension: Dimension, ox: number, oy: number, oz: number, size: [number, number, number]) {
-    const bounds = getStructureBounds(ox, oy, oz, size);
-    fillAir(dimension, bounds.min.x, bounds.min.y, bounds.min.z, bounds.max.x, bounds.max.y, bounds.max.z);
-  }
-
-  static async clearInstanceMap(dimension: Dimension, id: string) {
+  static clearInstanceMap(dimension: Dimension, id: string) {
     const inst = this.getInstance(id);
     if (!inst) return;
     const layout = getMapLayout(inst.x, inst.z);
 
-    const chunks: Promise<void>[] = [];
+    const allBounds: { min: { x: number; y: number; z: number }; max: { x: number; y: number; z: number } }[] = [];
 
     const centerInfo = STRUCTURES[layout.center.structureKey];
-    const cb = getStructureBounds(layout.center.placeOffset[0], layout.center.placeOffset[1], layout.center.placeOffset[2], centerInfo.size);
-    chunks.push(chunkedFillAir(dimension, cb.min.x, cb.min.y, cb.min.z, cb.max.x, cb.max.y, cb.max.z));
+    allBounds.push(getStructureBounds(layout.center.placeOffset[0], layout.center.placeOffset[1], layout.center.placeOffset[2], centerInfo.size));
 
     for (const team of layout.teams) {
       const info = STRUCTURES[team.structureKey];
-      const tb = getStructureBounds(team.placeOffset[0], team.placeOffset[1], team.placeOffset[2], info.size);
-      chunks.push(chunkedFillAir(dimension, tb.min.x, tb.min.y, tb.min.z, tb.max.x, tb.max.y, tb.max.z));
+      allBounds.push(getStructureBounds(team.placeOffset[0], team.placeOffset[1], team.placeOffset[2], info.size));
     }
 
     for (const island of layout.smallIslands) {
       const info = STRUCTURES[island.structureKey];
-      const ib = getStructureBounds(island.placeOffset[0], island.placeOffset[1], island.placeOffset[2], info.size);
-      chunks.push(chunkedFillAir(dimension, ib.min.x, ib.min.y, ib.min.z, ib.max.x, ib.max.y, ib.max.z));
+      allBounds.push(getStructureBounds(island.placeOffset[0], island.placeOffset[1], island.placeOffset[2], info.size));
     }
 
-    await Promise.all(chunks);
+    for (const b of allBounds) {
+      try {
+        dimension.runCommand(`fill ${b.min.x} ${b.min.y} ${b.min.z} ${b.max.x} ${b.max.y} ${b.max.z} air 0 replace`);
+      } catch { }
+      try {
+        const dx = b.max.x - b.min.x;
+        const dy = b.max.y - b.min.y;
+        const dz = b.max.z - b.min.z;
+        dimension.runCommand(`kill @e[type=item,x=${b.min.x},y=${b.min.y},z=${b.min.z},dx=${dx},dy=${dy},dz=${dz}]`);
+      } catch { }
+    }
   }
 
   static findArmorStands(dimension: Dimension, ox: number, oy: number, oz: number, size: [number, number, number]): { name: string; position: { x: number; y: number; z: number } }[] {
