@@ -73,6 +73,7 @@ export type I18nKeyList =
   | "cannotBuyNow"
   | "instanceNotFound"
   | "alreadyInGame"
+  | "gameAlreadyStarted"
   | "teamFull"
   | "returnHubMsg"
   | "gameEndBroadcast"

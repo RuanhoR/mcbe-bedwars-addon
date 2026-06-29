@@ -1,7 +1,9 @@
 import { Command } from "@mbler/mcx";
 import { CustomCommandStatus } from "@minecraft/server";
+import type { I18nKeyList } from "../types";
 import GameManager from "../game/GameManager";
 import InstanceManager from "../game/InstanceManager";
+import { t } from "../i18n/locals";
 
 const command = new Command("bedwars:join");
 command.setDescription("Join a bedwars game instance by name");
@@ -25,10 +27,19 @@ command.action((origin, instanceName) => {
   }
 
   GameManager.init();
-  const inst = InstanceManager.getInstances().find(i => i.name === instanceName);
+  const all = InstanceManager.getInstances();
+  const inst = all.find(i => i.name === instanceName);
   if (!inst) {
     return {
-      message: "§cInstance not found: " + instanceName,
+      message: "§cInstance not found: " + instanceName + " (available: " + all.map(i => i.name).join(", ") + ")",
+      status: CustomCommandStatus.Failure,
+    };
+  }
+
+  const err = GameManager.canJoin(player, inst.id);
+  if (err) {
+    return {
+      message: "§c" + t(err),
       status: CustomCommandStatus.Failure,
     };
   }
@@ -42,7 +53,7 @@ command.action((origin, instanceName) => {
   }
 
   return {
-    message: "§aJoined bedwars instance: " + inst.name,
+    message: "§a" + t("playerJoined", { name: player.name, current: "?", total: String(inst.totalPlayers) }),
     status: CustomCommandStatus.Success,
   };
 });

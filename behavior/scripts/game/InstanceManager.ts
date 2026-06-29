@@ -1,7 +1,7 @@
 import { Player, world, Dimension, system } from "@minecraft/server";
 import { WorldDynamicPropertyKeys, BedwarsInstanceData, BedwarsGlobalData, BedwarsTeamData, TeamColor, TEAM_COLORS } from "../types";
 import { MAP_Y, getMapLayout, STRUCTURES } from "./config";
-import { fillAir, getStructureBounds, sleepTicks } from "../utils/worldEditUtils";
+import { fillAir, chunkedFillAir, getStructureBounds, sleepTicks } from "../utils/worldEditUtils";
 import { t } from "../i18n/locals";
 
 class InstanceManager {
@@ -132,23 +132,30 @@ class InstanceManager {
     fillAir(dimension, bounds.min.x, bounds.min.y, bounds.min.z, bounds.max.x, bounds.max.y, bounds.max.z);
   }
 
-  static clearInstanceMap(dimension: Dimension, id: string) {
+  static async clearInstanceMap(dimension: Dimension, id: string) {
     const inst = this.getInstance(id);
     if (!inst) return;
     const layout = getMapLayout(inst.x, inst.z);
 
+    const chunks: Promise<void>[] = [];
+
     const centerInfo = STRUCTURES[layout.center.structureKey];
-    this.removeStructureBlocks(dimension, layout.center.placeOffset[0], layout.center.placeOffset[1], layout.center.placeOffset[2], centerInfo.size);
+    const cb = getStructureBounds(layout.center.placeOffset[0], layout.center.placeOffset[1], layout.center.placeOffset[2], centerInfo.size);
+    chunks.push(chunkedFillAir(dimension, cb.min.x, cb.min.y, cb.min.z, cb.max.x, cb.max.y, cb.max.z));
 
     for (const team of layout.teams) {
       const info = STRUCTURES[team.structureKey];
-      this.removeStructureBlocks(dimension, team.placeOffset[0], team.placeOffset[1], team.placeOffset[2], info.size);
+      const tb = getStructureBounds(team.placeOffset[0], team.placeOffset[1], team.placeOffset[2], info.size);
+      chunks.push(chunkedFillAir(dimension, tb.min.x, tb.min.y, tb.min.z, tb.max.x, tb.max.y, tb.max.z));
     }
 
     for (const island of layout.smallIslands) {
       const info = STRUCTURES[island.structureKey];
-      this.removeStructureBlocks(dimension, island.placeOffset[0], island.placeOffset[1], island.placeOffset[2], info.size);
+      const ib = getStructureBounds(island.placeOffset[0], island.placeOffset[1], island.placeOffset[2], info.size);
+      chunks.push(chunkedFillAir(dimension, ib.min.x, ib.min.y, ib.min.z, ib.max.x, ib.max.y, ib.max.z));
     }
+
+    await Promise.all(chunks);
   }
 
   static findArmorStands(dimension: Dimension, ox: number, oy: number, oz: number, size: [number, number, number]): { name: string; position: { x: number; y: number; z: number } }[] {

@@ -1,4 +1,5 @@
 import { Player, world, system, GameMode, Entity, ItemStack } from "@minecraft/server";
+import type { I18nKeyList } from "../types";
 import { t } from "../i18n/locals";
 import { BedwarsInstanceData, TeamColor } from "../types";
 import InstanceManager from "./InstanceManager";
@@ -10,9 +11,14 @@ const PLAYER_INSTANCE_KEY = "__bw_instance";
 const PLAYER_IS_ALIVE_KEY = "__bw_alive";
 const PLAYER_IS_SPECTATOR_KEY = "__bw_spectator";
 
+const IRON_INTERVAL = 2; // every 2 loop ticks (1s at 10tick interval)
+const GOLD_INTERVAL = 20; // every 20 loop ticks (10s)
+const DIAMOND_INTERVAL = 60; // every 60 loop ticks (30s)
+
 class GameManager {
   private static _gameLoopId: number | null = null;
   private static _runningGames: Set<string> = new Set();
+  private static _instanceTickCount: Map<string, number> = new Map();
 
   static init() {
     if (this._gameLoopId !== null) return;
@@ -24,7 +30,9 @@ class GameManager {
   private static _tick() {
     const instances = InstanceManager.getInstances().filter(i => i.status === "playing");
     for (const inst of instances) {
-      this._spawnResources(inst);
+      const tick = (this._instanceTickCount.get(inst.id) || 0) + 1;
+      this._instanceTickCount.set(inst.id, tick);
+      this._spawnResources(inst, tick);
       this._checkPlayerFalls(inst);
       this._protectShopBees(inst);
     }
@@ -44,20 +52,20 @@ class GameManager {
     }
   }
 
-  private static _spawnResources(inst: BedwarsInstanceData) {
+  private static _spawnResources(inst: BedwarsInstanceData, tick: number) {
     const dim = world.getDimension("overworld");
     for (const team of inst.teams) {
-      if (team.ironPosition) {
+      if (team.ironPosition && tick % IRON_INTERVAL === 0) {
         try {
-          dim.spawnItem(new ItemStack("minecraft:iron_ingot", 1), team.ironPosition);
+          dim.spawnItem(new ItemStack("minecraft:iron_ingot", 4), team.ironPosition);
         } catch { }
       }
-      if (team.goldPosition) {
+      if (team.goldPosition && tick % GOLD_INTERVAL === 0) {
         try {
           dim.spawnItem(new ItemStack("minecraft:gold_ingot", 1), team.goldPosition);
         } catch { }
       }
-      if (team.diamondPosition) {
+      if (team.diamondPosition && tick % DIAMOND_INTERVAL === 0) {
         try {
           dim.spawnItem(new ItemStack("minecraft:diamond", 1), team.diamondPosition);
         } catch { }
@@ -80,19 +88,19 @@ class GameManager {
     }
   }
 
-  static canJoin(player: Player, instanceId: string): string | null {
+  static canJoin(player: Player, instanceId: string): I18nKeyList | null {
     const inst = InstanceManager.getInstance(instanceId);
     if (!inst) return "instanceNotFound";
     const existing = InstanceManager.getPlayerInstance(player.id);
     if (existing) return "alreadyInGame";
-    if (inst.status !== "idle" && inst.status !== "waiting") return "gameStarted";
+    if (inst.status !== "idle" && inst.status !== "waiting") return "gameAlreadyStarted";
     return null;
   }
 
   static joinGame(player: Player, instanceId: string): boolean {
     const err = this.canJoin(player, instanceId);
     if (err) {
-      player.sendMessage(`§c${err}`);
+      player.sendMessage(t(err));
       return false;
     }
     const inst = InstanceManager.getInstance(instanceId)!;
@@ -198,7 +206,7 @@ class GameManager {
     }
   }
 
-  static endGame(instanceId: string) {
+  static async endGame(instanceId: string) {
     const inst = InstanceManager.getInstance(instanceId);
     if (!inst) return;
     this._runningGames.delete(instanceId);
@@ -225,7 +233,7 @@ class GameManager {
       team.players = [];
     }
 
-    InstanceManager.clearInstanceMap(dim, instanceId);
+    await InstanceManager.clearInstanceMap(dim, instanceId);
     world.sendMessage(t("gameEndBroadcast", { name: inst.name }));
   }
 
