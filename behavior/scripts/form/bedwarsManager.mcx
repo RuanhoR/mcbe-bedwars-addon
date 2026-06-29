@@ -1,0 +1,176 @@
+<Ui>
+  <button click="onCreate">{{ createInstance }}</button>
+  <button click="onDelete">{{ deleteInstance }}</button>
+  <button click="onList">{{ instanceList }}</button>
+</Ui>
+<script lang="ts">
+import { Player, world, system } from "@minecraft/server";
+import { ActionFormData, ModalFormData, MessageFormData } from "@minecraft/server-ui";
+import { t } from "../i18n/locals";
+import InstanceManager from "../game/InstanceManager";
+import GameManager from "../game/GameManager";
+import { TEAM_COLOR_NAMES } from "../game/config";
+
+export function onCreate(res: unknown, player: Player) {
+  if (!InstanceManager.isInitIslandLoaded()) {
+    const form = new ModalFormData()
+      .title(t("initIslandNotLoaded"))
+      .textField(t("initIslandPromptX"), "0")
+      .textField(t("initIslandPromptZ"), "0");
+    form.show(player).then(async (response) => {
+      if (response.canceled) return;
+      const vals = response.formValues as [string, string];
+      const ix = parseInt(vals[0]);
+      const iz = parseInt(vals[1]);
+      if (isNaN(ix) || isNaN(iz)) {
+        player.sendMessage("§cInvalid coordinates");
+        return;
+      }
+      player.sendMessage("§e正在加载初始岛...");
+      await InstanceManager.loadInitIsland(player.dimension, ix, iz);
+      player.sendMessage("§a初始岛加载完成！");
+      showCreateForm(player);
+    });
+  } else {
+    showCreateForm(player);
+  }
+}
+
+function showCreateForm(player: Player) {
+  const form = new ModalFormData()
+    .title(t("createInstance"))
+    .textField(t("instanceName"), "My Bedwars")
+    .textField(t("instanceX"), "0")
+    .textField(t("instanceZ"), "0")
+    .dropdown(t("instancePlayerCount"), [
+      t("gameMode2v2"),
+      t("gameMode4v2"),
+      t("gameMode4v4"),
+      t("gameMode8v4"),
+    ], { defaultValueIndex: 0 });
+
+  form.show(player).then((response) => {
+    if (response.canceled) return;
+    const vals = response.formValues as [string, string, string, number];
+    const name = vals[0].trim();
+    const x = parseInt(vals[1]);
+    const z = parseInt(vals[2]);
+    const modeIdx = vals[3];
+    if (!name || isNaN(x) || isNaN(z)) {
+      player.sendMessage("§cInvalid input");
+      return;
+    }
+    const modes = [
+      { total: 2, teams: 2, perTeam: 1 },
+      { total: 4, teams: 2, perTeam: 2 },
+      { total: 4, teams: 4, perTeam: 1 },
+      { total: 8, teams: 4, perTeam: 2 },
+    ];
+    const mode = modes[modeIdx];
+    const id = `bw_${Date.now()}`;
+    InstanceManager.createInstance(id, name, x, z, mode.teams, mode.perTeam, mode.total);
+    player.sendMessage(t("createSuccess", { name }));
+
+    player.sendMessage("§e正在加载地图...");
+    InstanceManager.loadAllMaps(player, id).then((ok) => {
+      if (ok) {
+        player.sendMessage(t("mapLoaded"));
+      }
+    });
+  });
+}
+
+export function onDelete(res: unknown, player: Player) {
+  const instances = InstanceManager.getInstances();
+  if (instances.length === 0) {
+    player.sendMessage("§c没有实例");
+    return;
+  }
+  const form = new ActionFormData()
+    .title(t("deleteInstance"))
+    .body(t("confirmDeleteBody", { name: "" }));
+  for (const inst of instances) {
+    const statusText = inst.status === "idle" ? t("statusIdle") : inst.status === "waiting" ? t("statusWaiting") : t("statusPlaying");
+    form.button(`§e${inst.name}\n§7${inst.x}, ${inst.z} | ${statusText}`);
+  }
+  form.show(player).then((response) => {
+    if (response.canceled || response.selection === undefined) return;
+    const inst = instances[response.selection];
+    const confirm = new MessageFormData()
+      .title(t("confirmDelete"))
+      .body(t("confirmDeleteBody", { name: inst.name }))
+      .button1("§c§l" + t("confirmDelete"))
+      .button2("§a" + t("cancel"));
+    confirm.show(player).then((confirmRes) => {
+      if (confirmRes.selection !== 0) return;
+      InstanceManager.clearInstanceMap(player.dimension, inst.id);
+      InstanceManager.deleteInstance(inst.id);
+      player.sendMessage(t("deleteSuccess", { name: inst.name }));
+    });
+  });
+}
+
+export function onList(res: unknown, player: Player) {
+  const instances = InstanceManager.getInstances();
+  if (instances.length === 0) {
+    player.sendMessage("§c没有实例");
+    return;
+  }
+  const form = new ActionFormData()
+    .title(t("instanceList"))
+    .body("§7点击查看实例详情和控制");
+  for (const inst of instances) {
+    const statusText = inst.status === "idle" ? "§7" + t("statusIdle") : inst.status === "waiting" ? "§e" + t("statusWaiting") : "§a" + t("statusPlaying");
+    const playerCount = inst.teams.reduce((s, t) => s + t.players.length, 0);
+    form.button(`§b${inst.name}\n${statusText} §7| §f${playerCount}/${inst.totalPlayers}`);
+  }
+  form.show(player).then((response) => {
+    if (response.canceled || response.selection === undefined) return;
+    const inst = instances[response.selection];
+    showInstanceDetail(player, inst.id);
+  });
+}
+
+function showInstanceDetail(player: Player, instanceId: string) {
+  const inst = InstanceManager.getInstance(instanceId);
+  if (!inst) return;
+
+  const statusText = inst.status === "idle" ? "§7" + t("statusIdle") : inst.status === "waiting" ? "§e" + t("statusWaiting") : "§a" + t("statusPlaying");
+  let body = `§6名称: §f${inst.name}\n`;
+  body += `§6状态: ${statusText}\n`;
+  body += `§6坐标: §f${inst.x}, ${inst.z}\n`;
+  body += `§6队伍: §f${inst.teamCount} 队, 每队 ${inst.playersPerTeam} 人\n\n`;
+  body += `§6队伍详情:\n`;
+  for (const team of inst.teams) {
+    const colorName = TEAM_COLOR_NAMES[team.color];
+    const players = team.players.map(id => {
+      const p = world.getEntity(id) as Player | undefined;
+      return p ? p.name : "离线";
+    }).join(", ") || "§7无";
+    const bedStatus = team.bedAlive ? "§a存活" : "§c已毁";
+    body += `  ${colorName}: §f${players} §7| 床: ${bedStatus}\n`;
+  }
+
+  const form = new ActionFormData()
+    .title(t("instanceDetail"))
+    .body(body);
+
+  if (inst.status === "idle" || inst.status === "waiting") {
+    form.button(`§a${t("startGame")}`);
+  }
+  if (inst.status === "playing") {
+    form.button(`§c${t("endGame")}`);
+  }
+  form.button("§7返回");
+
+  form.show(player).then((response) => {
+    if (response.canceled || response.selection === undefined) return;
+    const sel = response.selection;
+    if ((inst.status === "idle" || inst.status === "waiting") && sel === 0) {
+      GameManager.startGame(instanceId);
+    } else if (inst.status === "playing" && sel === 0) {
+      GameManager.endGame(instanceId);
+    }
+  });
+}
+</script>

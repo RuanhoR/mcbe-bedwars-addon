@@ -1,0 +1,60 @@
+<Ui>
+  <title>OP Management</title>
+  <button click="addOp">{{ addOp }}</button>
+  <button click="removeOp">{{ removeOp }}</button>
+</Ui>
+<script lang="ts">
+import { Player, world } from "@minecraft/server";
+import { ModalFormData, ActionFormData, ActionFormResponse } from "@minecraft/server-ui";
+import { addOp as addPlayerOp, removeOp as removePlayerOp, getOnlineOps } from "../utils/playerPermission";
+import { t } from "../i18n/locals";
+
+export function addOp(res: ActionFormResponse, player: Player) {
+  const form = new ModalFormData()
+    .title(t("addOp"))
+    .textField("Player name", "Enter the player name to add as OP");
+  form.show(player).then((response) => {
+    if (response.canceled) return;
+    const name = (response.formValues as string[])?.[0]?.trim();
+    if (!name) {
+      player.sendMessage(t("playerCannotEmpty"));
+      return;
+    }
+    const target = world.getPlayers().find(p => p.name === name);
+    if (target) {
+      addPlayerOp(target);
+      player.sendMessage(t("addOpSuccess", {
+        name: player.name
+      }));
+    } else {
+      player.sendMessage(`§cPlayer "${name}" not found or not online`);
+    }
+  });
+}
+
+export function removeOp(res: ActionFormResponse, player: Player) {
+  const ops = getOnlineOps();
+  if (ops.length === 0) {
+    player.sendMessage("§cNo online operators to remove");
+    return;
+  }
+  const form = new ActionFormData()
+    .title(t("removeOp"))
+    .body("Select an operator to remove:");
+  for (const op of ops) {
+    form.button(`§c${op.name}`);
+  }
+  form.show(player).then((response) => {
+    if (response.canceled) return;
+    const sel = response.selection;
+    if (sel === undefined) return;
+    const target = ops[sel];
+    if (target) {
+      removePlayerOp(target);
+      player.sendMessage(t("removeOpSuccess", {
+        name: player.name
+      }));
+    }
+  });
+}
+</script>

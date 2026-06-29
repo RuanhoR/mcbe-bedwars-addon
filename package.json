@@ -12,16 +12,17 @@
   },
   "type": "module",
   "dependencies": {
-    "@mbler/mcx": "0.0.4-rc.4",
+    "@mbler/mcx": "0.0.4-rc.8",
     "@mbler/mcx-component": "0.0.0-alpha.2",
-    "@mbler/mcx-types": "0.0.4-rc.2"
+    "@mbler/mcx-types": "0.0.4-rc.3"
   },
   "devDependencies": {
-    "@mbler/mcx-core": "0.1.2-rc.9",
+    "@mbler/mcx-core": "0.1.2-rc.10",
     "@minecraft/server": "2.9.0-beta.1.26.31-stable",
     "@minecraft/server-ui": "2.2.0-beta.1.26.31-stable",
     "@types/node": "^26.0.1",
     "cross-env": "^10.1.0",
-    "mbler": "0.2.8-rc.8"
+    "mbler": "0.2.8-rc.9",
+    "prismarine-nbt": "^2.8.0"
   }
 }

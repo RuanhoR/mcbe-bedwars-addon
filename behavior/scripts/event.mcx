@@ -1,19 +1,61 @@
 <Event @after>
 itemUse = onUseItem
+entityHurt = onEntityHurt
+projectileHitBlock = onProjectileHitBlock
 </Event>
 <script lang="ts">
-import { ItemUseAfterEvent, world } from "@minecraft/server";
-import { isOp } from "./utils/playerPermission"
-import mangerMcx from "./form/manger.mcx";
-import { t } from "./i18n/locals"
+import { ItemUseAfterEvent, EntityHurtAfterEvent, ProjectileHitBlockAfterEvent, world } from "@minecraft/server";
+import { isOp } from "./utils/playerPermission";
+import mangerMcx from "./form/manager.mcx";
+import { t } from "./i18n/locals";
+import GameManager from "./game/GameManager";
+import ShopManager from "./game/ShopManager";
+
 export function onUseItem(event: ItemUseAfterEvent) {
-  console.log("itemUse")
   if (event.itemStack.typeId == "bedwars:menu") {
     if (isOp(event.source)) {
       mangerMcx.app.ui.show(event.source as any, {
         mangeOP: t("mangeOp"),
-        player: event.source
-      })
+        bedwarsManager: t("bedwarsManager"),
+        player: event.source,
+      });
+    }
+  }
+  if (event.itemStack.typeId == "minecraft:fire_charge") {
+    const lore = event.itemStack.getLore();
+    if (lore && lore.length > 0 && lore[0] === "0x8971") {
+      GameManager.handleFireChargeUse(event.source);
+    }
+  }
+}
+
+export function onEntityHurt(event: EntityHurtAfterEvent) {
+  const hurtEntity = event.hurtEntity;
+  if (hurtEntity && hurtEntity.typeId === "minecraft:bee" && hurtEntity.getDynamicProperty("__bw_shop")) {
+    const src = event.damageSource;
+    if (src && src.damagingEntity) {
+      const attacker = src.damagingEntity;
+      if (attacker.typeId.includes("player")) {
+        const p = attacker as any;
+        const c = hurtEntity.getDynamicProperty("__bw_team_color") as string;
+        if (c) {
+          ShopManager.showShop(p, c as any);
+        }
+      }
+    }
+  }
+}
+
+export function onProjectileHitBlock(event: ProjectileHitBlockAfterEvent) {
+  const projectile = event.projectile;
+  if (projectile && projectile.typeId === "minecraft:egg") {
+    const hitLoc = event.location;
+    if (hitLoc) {
+      ShopManager.handleProjectileHit(projectile, {
+        x: Math.floor(hitLoc.x),
+        y: Math.floor(hitLoc.y),
+        z: Math.floor(hitLoc.z),
+      });
     }
   }
 }

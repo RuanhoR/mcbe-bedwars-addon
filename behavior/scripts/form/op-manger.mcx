@@ -1,7 +1,0 @@
-<Ui>
-  <button for="a in OpList">{{ a }}</button>
-</Ui>
-
-<script lang="ts">
-;
-</script>

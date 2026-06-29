@@ -132,6 +132,10 @@ export function removeOp(player: Player) {
   initPlayerPermission();
   PlayerPlayPermission.removeOp(player);
 }
+export function getOnlineOps() {
+  initPlayerPermission();
+  return PlayerPlayPermission.getOnlineOps();
+}
 export function isOp(player: Player) {
   initPlayerPermission();
   return PlayerPlayPermission.isOp(player);
