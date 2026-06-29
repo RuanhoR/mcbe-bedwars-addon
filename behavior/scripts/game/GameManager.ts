@@ -1,4 +1,5 @@
 import { Player, world, system, GameMode, Entity, ItemStack } from "@minecraft/server";
+import { t } from "../i18n/locals";
 import { BedwarsInstanceData, TeamColor } from "../types";
 import InstanceManager from "./InstanceManager";
 import ShopManager from "./ShopManager";
@@ -47,13 +48,19 @@ class GameManager {
     const dim = world.getDimension("overworld");
     for (const team of inst.teams) {
       if (team.ironPosition) {
-        dim.spawnItem(new ItemStack("minecraft:iron_ingot", 1), team.ironPosition);
+        try {
+          dim.spawnItem(new ItemStack("minecraft:iron_ingot", 1), team.ironPosition);
+        } catch { }
       }
       if (team.goldPosition) {
-        dim.spawnItem(new ItemStack("minecraft:gold_ingot", 1), team.goldPosition);
+        try {
+          dim.spawnItem(new ItemStack("minecraft:gold_ingot", 1), team.goldPosition);
+        } catch { }
       }
       if (team.diamondPosition) {
-        dim.spawnItem(new ItemStack("minecraft:diamond", 1), team.diamondPosition);
+        try {
+          dim.spawnItem(new ItemStack("minecraft:diamond", 1), team.diamondPosition);
+        } catch { }
       }
     }
   }
@@ -95,7 +102,7 @@ class GameManager {
 
     const availableTeams = inst.teams.filter(t => t.players.length < inst.playersPerTeam);
     if (availableTeams.length === 0) {
-      player.sendMessage("§c所有队伍已满");
+      player.sendMessage(t("teamFull"));
       return false;
     }
     const team = availableTeams[0];
@@ -114,8 +121,8 @@ class GameManager {
     player.teleport({ x: initX, y: MAP_Y + 5, z: initZ }, { dimension: dim });
     player.setGameMode(GameMode.Adventure);
 
-    const totalPlayers = inst.teams.reduce((s, t) => s + t.players.length, 0);
-    world.sendMessage(`§e${player.name} 已加入游戏 (§b${inst.name}§e) (§a${totalPlayers}/${inst.totalPlayers}§e)`);
+    const totalPlayers = inst.teams.reduce((s, T) => s + T.players.length, 0);
+    world.sendMessage(t("playerJoined", { name: player.name, current: String(totalPlayers), total: String(inst.totalPlayers) }));
 
     if (totalPlayers >= inst.totalPlayers) {
       system.runTimeout(() => {
@@ -134,6 +141,8 @@ class GameManager {
 
     InstanceManager.setInstanceStatus(instanceId, "playing");
     const dim = world.getDimension("overworld");
+    const centerX = inst.x;
+    const centerZ = inst.z;
 
     for (const team of inst.teams) {
       for (const playerId of team.players) {
@@ -142,22 +151,21 @@ class GameManager {
         player.setGameMode(GameMode.Survival);
         player.setDynamicProperty(PLAYER_IS_ALIVE_KEY, true);
 
+        player.addEffect("regeneration", 100, { amplifier: 255, showParticles: false });
+
         if (team.bedPosition) {
           const bedPos = { x: team.bedPosition.x, y: team.bedPosition.y + 1, z: team.bedPosition.z };
           player.teleport(bedPos, { dimension: dim });
-        } else if (player.location) {
-          const teamLayout = InstanceManager.getData().instances.find(i => i.id === instanceId)?.teams.find(t => t.color === team.color);
-          if (teamLayout?.shopPosition) {
-            player.teleport({ x: teamLayout.shopPosition.x, y: teamLayout.shopPosition.y + 2, z: teamLayout.shopPosition.z }, { dimension: dim });
-          }
+        } else {
+          player.teleport({ x: centerX, y: MAP_Y + 5, z: centerZ }, { dimension: dim });
         }
 
-        player.sendMessage("§a游戏开始了！加油！");
+        player.sendMessage(t("gameStarted"));
         this._spawnShopBee(player, team);
       }
     }
 
-    world.sendMessage(`§6起床战争 §a${inst.name} §e已开始！`);
+    world.sendMessage(t("gameStartBroadcast", { name: inst.name }));
   }
 
   private static _spawnShopBee(player: Player, team: { color: TeamColor; shopPosition?: { x: number; y: number; z: number } | null }) {
@@ -198,12 +206,17 @@ class GameManager {
 
     const dim = world.getDimension("overworld");
 
+    const centerX = inst.x;
+    const centerZ = inst.z;
+
     for (const team of inst.teams) {
       for (const playerId of team.players) {
         const player = world.getEntity(playerId) as Player;
         if (!player) continue;
+        player.addEffect("regeneration", 100, { amplifier: 255, showParticles: false });
+        player.teleport({ x: centerX, y: MAP_Y + 5, z: centerZ }, { dimension: dim });
         player.setGameMode(GameMode.Adventure);
-        player.sendMessage("§c游戏已结束！");
+        player.sendMessage(t("gameEnded"));
         player.setDynamicProperty(PLAYER_TEAM_KEY, undefined);
         player.setDynamicProperty(PLAYER_INSTANCE_KEY, undefined);
         player.setDynamicProperty(PLAYER_IS_ALIVE_KEY, undefined);
@@ -213,13 +226,13 @@ class GameManager {
     }
 
     InstanceManager.clearInstanceMap(dim, instanceId);
-    world.sendMessage(`§c起床战争 ${inst.name} 已结束`);
+    world.sendMessage(t("gameEndBroadcast", { name: inst.name }));
   }
 
   static leaveGame(player: Player) {
     const instanceId = player.getDynamicProperty(PLAYER_INSTANCE_KEY) as string | undefined;
     if (!instanceId) {
-      player.sendMessage("§c你不在游戏中");
+      player.sendMessage(t("notInGame"));
       return;
     }
     const inst = InstanceManager.getInstance(instanceId);
@@ -235,7 +248,7 @@ class GameManager {
     InstanceManager.updateInstance(instanceId, () => {});
 
     player.setGameMode(GameMode.Adventure);
-    player.sendMessage("§e你已离开游戏");
+    player.sendMessage(t("leaveGameMsg"));
     player.setDynamicProperty(PLAYER_TEAM_KEY, undefined);
     player.setDynamicProperty(PLAYER_INSTANCE_KEY, undefined);
     player.setDynamicProperty(PLAYER_IS_ALIVE_KEY, undefined);
@@ -301,7 +314,7 @@ class GameManager {
     const spawn = world.getDefaultSpawnLocation();
     player.teleport(spawn, { dimension: world.getDimension("overworld") });
     player.setGameMode(GameMode.Adventure);
-    player.sendMessage("§a你已回到大厅");
+    player.sendMessage(t("returnHubMsg"));
   }
 }
 

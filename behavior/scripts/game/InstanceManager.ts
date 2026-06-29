@@ -2,6 +2,7 @@ import { Player, world, Dimension, system } from "@minecraft/server";
 import { WorldDynamicPropertyKeys, BedwarsInstanceData, BedwarsGlobalData, BedwarsTeamData, TeamColor, TEAM_COLORS } from "../types";
 import { MAP_Y, getMapLayout, STRUCTURES } from "./config";
 import { fillAir, getStructureBounds, sleepTicks } from "../utils/worldEditUtils";
+import { t } from "../i18n/locals";
 
 class InstanceManager {
   private static _isInitd = false;
@@ -122,6 +123,11 @@ class InstanceManager {
     await sleepTicks(5);
     world.structureManager.place(info.id, dimension, { x: ox, y: MAP_Y, z: oz });
     this.setInitIslandPos(x, z);
+    sleepTicks(2).then(() => {
+      dimension.getEntities({ type: "minecraft:player", closest: 1, maxDistance: 250 }).forEach(p => {
+        p.teleport({ x: x, y: MAP_Y + 5, z }, { dimension });
+      });
+    });
   }
 
   static removeStructureBlocks(dimension: Dimension, ox: number, oy: number, oz: number, size: [number, number, number]) {
@@ -174,11 +180,11 @@ class InstanceManager {
 
   static async loadAllMaps(sender: Player, instanceId: string): Promise<boolean> {
     const inst = this.getInstance(instanceId);
-    if (!inst) { sender.sendMessage("§cInstance not found"); return false; }
+    if (!inst) { sender.sendMessage(t("instanceNotFound")); return false; }
     const dim = sender.dimension;
     const layout = getMapLayout(inst.x, inst.z);
 
-    sender.sendMessage("§e正在加载中岛...");
+    sender.sendMessage(t("loadingIsland", { label: "Center" }));
     const centerInfo = STRUCTURES[layout.center.structureKey];
     world.structureManager.place(centerInfo.id, dim, { x: layout.center.placeOffset[0], y: layout.center.placeOffset[1], z: layout.center.placeOffset[2] });
     sender.teleport({ x: inst.x, y: MAP_Y + 5, z: inst.z }, { dimension: dim });
@@ -189,7 +195,7 @@ class InstanceManager {
     for (let i = 0; i < layout.teams.length; i++) {
       const team = layout.teams[i];
       const info = STRUCTURES[team.structureKey];
-      sender.sendMessage(`§e正在加载${team.label}家...`);
+      sender.sendMessage(t("loadingIsland", { label: team.label }));
       world.structureManager.place(info.id, dim, { x: team.placeOffset[0], y: team.placeOffset[1], z: team.placeOffset[2] });
       sender.teleport({ x: team.placeOffset[0] + 9, y: MAP_Y + 5, z: team.placeOffset[2] + 9 }, { dimension: dim });
       await sleepTicks(10);
@@ -200,7 +206,7 @@ class InstanceManager {
     for (let i = 0; i < layout.smallIslands.length; i++) {
       const island = layout.smallIslands[i];
       const info = STRUCTURES[island.structureKey];
-      sender.sendMessage(`§e正在加载${island.label}...`);
+      sender.sendMessage(t("loadingIsland", { label: island.label }));
       world.structureManager.place(info.id, dim, { x: island.placeOffset[0], y: island.placeOffset[1], z: island.placeOffset[2] });
       await sleepTicks(5);
       const entities = this.findArmorStands(dim, island.placeOffset[0], island.placeOffset[1], island.placeOffset[2], info.size);
@@ -213,7 +219,9 @@ class InstanceManager {
       }
     });
 
-    sender.sendMessage("§a所有地图加载完成！");
+    sender.teleport({ x: inst.x, y: MAP_Y + 5, z: inst.z }, { dimension: dim });
+    sender.addEffect("regeneration", 100, { amplifier: 255, showParticles: false });
+    sender.sendMessage(t("mapLoadComplete"));
     return true;
   }
 

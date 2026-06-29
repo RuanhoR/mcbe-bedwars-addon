@@ -26,9 +26,9 @@ export function onCreate(res: unknown, player: Player) {
         player.sendMessage("§cInvalid coordinates");
         return;
       }
-      player.sendMessage("§e正在加载初始岛...");
+      player.sendMessage(t("loadingInitIsland"));
       await InstanceManager.loadInitIsland(player.dimension, ix, iz);
-      player.sendMessage("§a初始岛加载完成！");
+      player.sendMessage(t("initIslandLoaded"));
       showCreateForm(player);
     });
   } else {
@@ -71,7 +71,7 @@ function showCreateForm(player: Player) {
     InstanceManager.createInstance(id, name, x, z, mode.teams, mode.perTeam, mode.total);
     player.sendMessage(t("createSuccess", { name }));
 
-    player.sendMessage("§e正在加载地图...");
+    player.sendMessage(t("loadingMap"));
     InstanceManager.loadAllMaps(player, id).then((ok) => {
       if (ok) {
         player.sendMessage(t("mapLoaded"));
@@ -83,7 +83,7 @@ function showCreateForm(player: Player) {
 export function onDelete(res: unknown, player: Player) {
   const instances = InstanceManager.getInstances();
   if (instances.length === 0) {
-    player.sendMessage("§c没有实例");
+    player.sendMessage(t("noInstances"));
     return;
   }
   const form = new ActionFormData()
@@ -113,7 +113,7 @@ export function onDelete(res: unknown, player: Player) {
 export function onList(res: unknown, player: Player) {
   const instances = InstanceManager.getInstances();
   if (instances.length === 0) {
-    player.sendMessage("§c没有实例");
+    player.sendMessage(t("noInstances"));
     return;
   }
   const form = new ActionFormData()
@@ -147,7 +147,7 @@ function showInstanceDetail(player: Player, instanceId: string) {
       const p = world.getEntity(id) as Player | undefined;
       return p ? p.name : "离线";
     }).join(", ") || "§7无";
-    const bedStatus = team.bedAlive ? "§a存活" : "§c已毁";
+    const bedStatus = team.bedAlive ? t("bedAliveLabel") : t("bedDestroyedLabel");
     body += `  ${colorName}: §f${players} §7| 床: ${bedStatus}\n`;
   }
 

@@ -72,7 +72,20 @@ export type I18nKeyList =
   | "purchaseSuccess"
   | "cannotBuyNow"
   | "instanceNotFound"
-  | "alreadyInGame";
+  | "alreadyInGame"
+  | "teamFull"
+  | "returnHubMsg"
+  | "gameEndBroadcast"
+  | "gameStartBroadcast"
+  | "leaveGameMsg"
+  | "notInGame"
+  | "loadingIsland"
+  | "mapLoadComplete"
+  | "loadingInitIsland"
+  | "initIslandLoaded"
+  | "noInstances"
+  | "bedAliveLabel"
+  | "bedDestroyedLabel";
 
 export const I18nLanguageKeyArr = ["zh", "en"] as const;
 export type I18nLanguageList = (typeof I18nLanguageKeyArr)[number];
