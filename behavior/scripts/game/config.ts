@@ -177,7 +177,7 @@ export const SHOP_ITEMS: ShopItemDef[] = [
     id: "bridge_egg",
     nameKey: "shopBridgeEgg",
     cost: [{ itemId: "minecraft:iron_ingot", count: 16 }],
-    result: { itemId: "minecraft:egg", count: 1 },
+    result: { itemId: "minecraft:egg", count: 1, lore: "0xbridge" },
   },
   {
     id: "stone_sword",

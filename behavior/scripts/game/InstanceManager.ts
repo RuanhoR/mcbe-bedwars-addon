@@ -114,7 +114,8 @@ class InstanceManager {
     this.updateInstance(id, (inst) => { inst.status = status; });
   }
 
-  static async loadInitIsland(dimension: Dimension, x: number, z: number): Promise<void> {
+  static async loadInitIsland(sender: Player, x: number, z: number): Promise<void> {
+    const dimension = sender.dimension;
     const info = STRUCTURES.init_play;
     const ox = x - Math.floor(40 / 2);
     const oz = z - Math.floor(30 / 2);
@@ -123,11 +124,7 @@ class InstanceManager {
     await sleepTicks(5);
     world.structureManager.place(info.id, dimension, { x: ox, y: MAP_Y, z: oz });
     this.setInitIslandPos(x, z);
-    sleepTicks(2).then(() => {
-      dimension.getEntities({ type: "minecraft:player", closest: 1, maxDistance: 250 }).forEach(p => {
-        p.teleport({ x: x, y: MAP_Y + 5, z }, { dimension });
-      });
-    });
+    sender.teleport({ x: x, y: MAP_Y + 5, z: z }, { dimension });
   }
 
   static removeStructureBlocks(dimension: Dimension, ox: number, oy: number, oz: number, size: [number, number, number]) {

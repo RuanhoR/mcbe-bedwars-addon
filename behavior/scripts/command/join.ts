@@ -4,9 +4,9 @@ import GameManager from "../game/GameManager";
 import InstanceManager from "../game/InstanceManager";
 
 const command = new Command("bedwars:join");
-command.setDescription("Join a bedwars game instance");
-command.addMandatoryParameter("instanceId", "string");
-command.action((origin, instanceId) => {
+command.setDescription("Join a bedwars game instance by name");
+command.addMandatoryParameter("instanceName", "string");
+command.action((origin, instanceName) => {
   if (
     origin.sourceType !== "Entity" ||
     !(origin.sourceEntity?.typeId || "").includes("player")
@@ -17,23 +17,23 @@ command.action((origin, instanceId) => {
     };
   }
   const player = origin.sourceEntity! as any;
-  if (typeof instanceId !== "string") {
+  if (typeof instanceName !== "string") {
     return {
-      message: "err: instanceId must be a string",
+      message: "err: instanceName must be a string",
       status: CustomCommandStatus.Failure,
     };
   }
 
   GameManager.init();
-  const inst = InstanceManager.getInstance(instanceId);
+  const inst = InstanceManager.getInstances().find(i => i.name === instanceName);
   if (!inst) {
     return {
-      message: "§cInstance not found: " + instanceId,
+      message: "§cInstance not found: " + instanceName,
       status: CustomCommandStatus.Failure,
     };
   }
 
-  const ok = GameManager.joinGame(player, instanceId);
+  const ok = GameManager.joinGame(player, inst.id);
   if (!ok) {
     return {
       message: "§cFailed to join game",

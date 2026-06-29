@@ -9,7 +9,7 @@ import { ActionFormData, ModalFormData, MessageFormData } from "@minecraft/serve
 import { t } from "../i18n/locals";
 import InstanceManager from "../game/InstanceManager";
 import GameManager from "../game/GameManager";
-import { TEAM_COLOR_NAMES } from "../game/config";
+import { TEAM_COLOR_NAMES, MAP_Y } from "../game/config";
 
 export function onCreate(res: unknown, player: Player) {
   if (!InstanceManager.isInitIslandLoaded()) {
@@ -27,7 +27,7 @@ export function onCreate(res: unknown, player: Player) {
         return;
       }
       player.sendMessage(t("loadingInitIsland"));
-      await InstanceManager.loadInitIsland(player.dimension, ix, iz);
+      await InstanceManager.loadInitIsland(player, ix, iz);
       player.sendMessage(t("initIslandLoaded"));
       showCreateForm(player);
     });
@@ -74,6 +74,9 @@ function showCreateForm(player: Player) {
     player.sendMessage(t("loadingMap"));
     InstanceManager.loadAllMaps(player, id).then((ok) => {
       if (ok) {
+        player.addEffect("regeneration", 100, { amplifier: 255, showParticles: false });
+        const initPos = InstanceManager.getInitIslandPos();
+        player.teleport({ x: initPos.x, y: MAP_Y + 5, z: initPos.z }, { dimension: player.dimension });
         player.sendMessage(t("mapLoaded"));
       }
     });

@@ -168,22 +168,23 @@ class ShopManager {
     }
   }
 
-  static handleProjectileHit(projectile: Entity, hitBlock?: { x: number; y: number; z: number }) {
-    const owner = projectile.getComponent("projectile")?.owner;
-    if (!owner || !owner.getDynamicProperty("__bw_instance")) return;
+  static handleProjectileHit(owner: Entity, hitBlock: { x: number; y: number; z: number }) {
+    if (!owner.getDynamicProperty("__bw_instance")) return;
 
     const teamColor = owner.getDynamicProperty("__bw_team") as TeamColor;
-    if (!teamColor || !hitBlock) return;
+    if (!teamColor) return;
 
     const woolId = TEAM_WOOL_MAP[teamColor] || "minecraft:white_wool";
     const dim = owner.dimension;
 
     for (let dx = -1; dx <= 1; dx++) {
       for (let dz = -1; dz <= 1; dz++) {
-        const bp = dim.getBlock({ x: hitBlock.x + dx, y: hitBlock.y, z: hitBlock.z + dz });
-        if (bp && bp.typeId === "minecraft:air") {
-          bp.setType(woolId);
-        }
+        try {
+          const bp = dim.getBlock({ x: hitBlock.x + dx, y: hitBlock.y, z: hitBlock.z + dz });
+          if (bp && bp.typeId === "minecraft:air") {
+            bp.setType(woolId);
+          }
+        } catch { }
       }
     }
   }

@@ -4,7 +4,13 @@ entityHurt = onEntityHurt
 projectileHitBlock = onProjectileHitBlock
 </Event>
 <script lang="ts">
-import { ItemUseAfterEvent, EntityHurtAfterEvent, ProjectileHitBlockAfterEvent, world } from "@minecraft/server";
+import {
+  ItemUseAfterEvent,
+  EntityHurtAfterEvent,
+  ProjectileHitBlockAfterEvent,
+  world,
+  EntityProjectileComponent,
+} from "@minecraft/server";
 import { isOp } from "./utils/playerPermission";
 import mangerMcx from "./form/manager.mcx";
 import { t } from "./i18n/locals";
@@ -25,6 +31,12 @@ export function onUseItem(event: ItemUseAfterEvent) {
     const lore = event.itemStack.getLore();
     if (lore && lore.length > 0 && lore[0] === "0x8971") {
       GameManager.handleFireChargeUse(event.source);
+    }
+  }
+  if (event.itemStack.typeId === "minecraft:egg") {
+    const lore = event.itemStack.getLore();
+    if (lore && lore.includes("0xbridge")) {
+      event.source.setDynamicProperty("__bw_bridge_egg", true);
     }
   }
 }
@@ -48,15 +60,19 @@ export function onEntityHurt(event: EntityHurtAfterEvent) {
 
 export function onProjectileHitBlock(event: ProjectileHitBlockAfterEvent) {
   const projectile = event.projectile;
-  if (projectile && projectile.typeId === "minecraft:egg") {
+  if (!projectile || projectile.typeId !== "minecraft:egg") return;
+  try {
+    const projComp = projectile.getComponent("minecraft:projectile") as EntityProjectileComponent | undefined;
+    if (!projComp) return;
+    const owner = projComp.owner;
+    if (!owner || !owner.getDynamicProperty("__bw_bridge_egg")) return;
+    owner.setDynamicProperty("__bw_bridge_egg", undefined);
     const hitLoc = event.location;
-    if (hitLoc) {
-      ShopManager.handleProjectileHit(projectile, {
-        x: Math.floor(hitLoc.x),
-        y: Math.floor(hitLoc.y),
-        z: Math.floor(hitLoc.z),
-      });
-    }
-  }
+    ShopManager.handleProjectileHit(owner, {
+      x: Math.floor(hitLoc.x),
+      y: Math.floor(hitLoc.y),
+      z: Math.floor(hitLoc.z),
+    });
+  } catch { }
 }
 </script>
