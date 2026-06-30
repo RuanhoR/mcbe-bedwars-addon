@@ -149,7 +149,10 @@ class InstanceManager {
 
     for (const b of allBounds) {
       try {
-        dimension.runCommand(`fill ${b.min.x} ${b.min.y} ${b.min.z} ${b.max.x} ${b.max.y} ${b.max.z} air 0 replace`);
+        dimension.runCommand(`tickingarea add ${b.min.x} ${b.min.y} ${b.min.z} ${b.max.x} ${b.max.y} ${b.max.z} bw_clear_temp true`);
+      } catch { }
+      try {
+        dimension.runCommand(`fill ${b.min.x} ${b.min.y} ${b.min.z} ${b.max.x} ${b.max.y} ${b.max.z} air 0 destroy`);
       } catch { }
       try {
         const dx = b.max.x - b.min.x;
@@ -157,6 +160,7 @@ class InstanceManager {
         const dz = b.max.z - b.min.z;
         dimension.runCommand(`kill @e[type=item,x=${b.min.x},y=${b.min.y},z=${b.min.z},dx=${dx},dy=${dy},dz=${dz}]`);
       } catch { }
+      try { dimension.runCommand(`tickingarea remove bw_clear_temp`); } catch { }
     }
   }
 
@@ -229,6 +233,37 @@ class InstanceManager {
     sender.addEffect("regeneration", 100, { amplifier: 255, showParticles: false });
     sender.sendMessage(t("mapLoadComplete"));
     return true;
+  }
+
+  static loadAllMapsDirect(dim: Dimension, instanceId: string) {
+    const inst = this.getInstance(instanceId);
+    if (!inst) return;
+    const layout = getMapLayout(inst.x, inst.z);
+
+    const centerInfo = STRUCTURES[layout.center.structureKey];
+    world.structureManager.place(centerInfo.id, dim, { x: layout.center.placeOffset[0], y: layout.center.placeOffset[1], z: layout.center.placeOffset[2] });
+    const centerEntities = this.findArmorStands(dim, layout.center.placeOffset[0], layout.center.placeOffset[1], layout.center.placeOffset[2], centerInfo.size);
+    this._processCenterEntities(inst, centerEntities);
+
+    for (let i = 0; i < layout.teams.length; i++) {
+      const team = layout.teams[i];
+      const info = STRUCTURES[team.structureKey];
+      world.structureManager.place(info.id, dim, { x: team.placeOffset[0], y: team.placeOffset[1], z: team.placeOffset[2] });
+      const entities = this.findArmorStands(dim, team.placeOffset[0], team.placeOffset[1], team.placeOffset[2], info.size);
+      this._processTeamEntities(inst, team.color, entities);
+    }
+
+    for (let i = 0; i < layout.smallIslands.length; i++) {
+      const island = layout.smallIslands[i];
+      const info = STRUCTURES[island.structureKey];
+      world.structureManager.place(info.id, dim, { x: island.placeOffset[0], y: island.placeOffset[1], z: island.placeOffset[2] });
+      const entities = this.findArmorStands(dim, island.placeOffset[0], island.placeOffset[1], island.placeOffset[2], info.size);
+      this._processIslandEntities(inst, entities);
+    }
+
+    this.updateInstance(instanceId, (inst) => {
+      for (const team of inst.teams) team.bedAlive = true;
+    });
   }
 
   private static _processCenterEntities(inst: BedwarsInstanceData, entities: { name: string; position: { x: number; y: number; z: number } }[]) {

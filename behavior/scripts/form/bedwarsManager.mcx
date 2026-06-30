@@ -2,6 +2,7 @@
   <button click="onCreate">{{ createInstance }}</button>
   <button click="onDelete">{{ deleteInstance }}</button>
   <button click="onList">{{ instanceList }}</button>
+  <button click="onSetLanguage">{{ setLanguage }}</button>
 </Ui>
 <script lang="ts">
 import { Player, world, system } from "@minecraft/server";
@@ -10,6 +11,7 @@ import { t } from "../i18n/locals";
 import InstanceManager from "../game/InstanceManager";
 import GameManager from "../game/GameManager";
 import { TEAM_COLOR_NAMES, MAP_Y } from "../game/config";
+import { I18nLanguageKeyArr, WorldDynamicPropertyKeys } from "../types";
 
 export function onCreate(res: unknown, player: Player) {
   if (!InstanceManager.isInitIslandLoaded()) {
@@ -174,6 +176,22 @@ function showInstanceDetail(player: Player, instanceId: string) {
     } else if (inst.status === "playing" && sel === 0) {
       GameManager.endGame(instanceId);
     }
+  });
+}
+
+export function onSetLanguage(res: unknown, player: Player) {
+  const form = new ActionFormData()
+    .title(t("setLanguage"))
+    .body(t("restartHint"));
+  for (const lang of I18nLanguageKeyArr) {
+    form.button(lang === "zh" ? "中文" : "English");
+  }
+  form.show(player).then((response) => {
+    if (response.canceled || response.selection === undefined) return;
+    const lang = I18nLanguageKeyArr[response.selection];
+    world.setDynamicProperty(WorldDynamicPropertyKeys.GolbalLanguage, lang);
+    player.sendMessage(t("languageSet", { lang: lang === "zh" ? "中文" : "English" }));
+    player.sendMessage(t("restartHint"));
   });
 }
 </script>

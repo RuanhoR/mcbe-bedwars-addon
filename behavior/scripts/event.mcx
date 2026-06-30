@@ -2,14 +2,17 @@
 itemUse = onUseItem
 entityHurt = onEntityHurt
 projectileHitBlock = onProjectileHitBlock
+entityDie = onEntityDie
 </Event>
 <script lang="ts">
 import {
   ItemUseAfterEvent,
   EntityHurtAfterEvent,
   ProjectileHitBlockAfterEvent,
+  EntityDieAfterEvent,
   world,
   EntityProjectileComponent,
+  Player,
 } from "@minecraft/server";
 import { isOp } from "./utils/playerPermission";
 import mangerMcx from "./form/manager.mcx";
@@ -69,10 +72,15 @@ export function onProjectileHitBlock(event: ProjectileHitBlockAfterEvent) {
     owner.setDynamicProperty("__bw_bridge_egg", undefined);
     const hitLoc = event.location;
     ShopManager.handleProjectileHit(owner, {
-      x: Math.floor(hitLoc.x),
-      y: Math.floor(hitLoc.y),
-      z: Math.floor(hitLoc.z),
+      x: Math.floor(hitLoc.x), y: Math.floor(hitLoc.y), z: Math.floor(hitLoc.z),
     });
   } catch { }
+}
+
+export function onEntityDie(event: EntityDieAfterEvent) {
+  const entity = event.deadEntity;
+  if (!entity || !entity.typeId.includes("player")) return;
+  const player = entity as Player;
+  GameManager.handlePlayerDeath(player);
 }
 </script>

@@ -86,7 +86,17 @@ export type I18nKeyList =
   | "initIslandLoaded"
   | "noInstances"
   | "bedAliveLabel"
-  | "bedDestroyedLabel";
+  | "bedDestroyedLabel"
+  | "gameGo"
+  | "respawnCountdown"
+  | "bedDestroyedMsg"
+  | "notEnoughPlayersStart"
+  | "setLanguage"
+  | "languageSet"
+  | "restartHint"
+  | "scoreboardTitle"
+  | "scoreboardStatus"
+  | "scoreboardTeamLine";
 
 export const I18nLanguageKeyArr = ["zh", "en"] as const;
 export type I18nLanguageList = (typeof I18nLanguageKeyArr)[number];
