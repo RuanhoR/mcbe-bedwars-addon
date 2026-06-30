@@ -21,6 +21,7 @@ export function openBedwarsManager(_res: ActionFormData, player: Player) {
     createInstance: t("createInstance"),
     deleteInstance: t("deleteInstance"),
     instanceList: t("instanceList"),
+    setLanguage: t("setLanguage")
   });
 }
 </script>

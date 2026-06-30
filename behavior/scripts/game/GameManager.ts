@@ -413,9 +413,11 @@ class GameManager {
   static sendToHub(player: Player) {
     const instId = player.getDynamicProperty(PLAYER_INSTANCE_KEY) as string;
     if (instId) this.leaveGame(player);
-    const spawn = world.getDefaultSpawnLocation();
-    player.teleport(spawn, { dimension: world.getDimension("overworld") });
-    player.setGameMode(GameMode.Adventure);
+    system.run(() => {
+      const spawn = world.getDefaultSpawnLocation();
+      player.teleport(spawn, { dimension: world.getDimension("overworld") });
+      player.setGameMode(GameMode.Adventure);
+    });
     player.sendMessage(t("returnHubMsg"));
   }
 }
