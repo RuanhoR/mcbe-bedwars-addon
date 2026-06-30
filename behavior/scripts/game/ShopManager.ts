@@ -98,12 +98,12 @@ class ShopManager {
     }
 
     if (itemDef.enchantments) {
-      const enchComponent = itemStack.getComponent("enchantments") as any;
+      const enchComponent = itemStack.getComponent("minecraft:enchantable") as any;
       if (enchComponent) {
         for (const ench of itemDef.enchantments) {
           try {
             enchComponent.addEnchantment({ type: new EnchantmentType(ench.id), level: ench.level });
-          } catch { }
+          } catch (e) { console.log(`BW Enchant fail ${ench.id}: ${e}`); }
         }
       }
     }
@@ -153,14 +153,14 @@ class ShopManager {
 
     for (const piece of armorSet) {
       const stack = new ItemStack(piece.itemId, 1);
-      const enchComponent = stack.getComponent("enchantments") as any;
+      const enchComponent = stack.getComponent("minecraft:enchantable") as any;
       if (enchComponent) {
         if (itemDef.enchantments) {
           for (const ench of itemDef.enchantments) {
-            try { enchComponent.addEnchantment({ type: new EnchantmentType(ench.id), level: ench.level }); } catch { }
+            try { enchComponent.addEnchantment({ type: new EnchantmentType(ench.id), level: ench.level }); } catch (e) { console.log(`BW Armor enchant fail ${ench.id}: ${e}`); }
           }
         }
-        try { enchComponent.addEnchantment({ type: new EnchantmentType("binding"), level: 1 }); } catch { }
+        try { enchComponent.addEnchantment({ type: new EnchantmentType("binding"), level: 1 }); } catch (e) { console.log(`BW Binding enchant fail: ${e}`); }
       }
       try {
         equipment.setEquipment(piece.slot as any, stack);

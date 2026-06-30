@@ -1,4 +1,5 @@
 <Ui>
+  <title>Map Manger</title>
   <button click="onCreate">{{ createInstance }}</button>
   <button click="onDelete">{{ deleteInstance }}</button>
   <button click="onList">{{ instanceList }}</button>

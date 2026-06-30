@@ -3,6 +3,7 @@ itemUse = onUseItem
 entityHurt = onEntityHurt
 projectileHitBlock = onProjectileHitBlock
 entityDie = onEntityDie
+playerSpawn = onPlayerSpawn
 </Event>
 <script lang="ts">
 import {
@@ -11,6 +12,7 @@ import {
   ProjectileHitBlockAfterEvent,
   EntityDieAfterEvent,
   world,
+  system,
   EntityProjectileComponent,
   Player,
 } from "@minecraft/server";
@@ -19,6 +21,7 @@ import mangerMcx from "./form/manager.mcx";
 import { t } from "./i18n/locals";
 import GameManager from "./game/GameManager";
 import ShopManager from "./game/ShopManager";
+import { startTracking } from "./game/BridgeEggTracker";
 
 export function onUseItem(event: ItemUseAfterEvent) {
   if (event.itemStack.typeId == "bedwars:menu") {
@@ -39,7 +42,7 @@ export function onUseItem(event: ItemUseAfterEvent) {
   if (event.itemStack.typeId === "minecraft:egg") {
     const lore = event.itemStack.getLore();
     if (lore && lore.includes("0xbridge")) {
-      event.source.setDynamicProperty("__bw_bridge_egg", true);
+      startTracking(event.source);
     }
   }
 }
@@ -81,6 +84,14 @@ export function onEntityDie(event: EntityDieAfterEvent) {
   const entity = event.deadEntity;
   if (!entity || !entity.typeId.includes("player")) return;
   const player = entity as Player;
-  GameManager.handlePlayerDeath(player);
+  player.setDynamicProperty("__bw_died", true);
+}
+
+export function onPlayerSpawn(event: any) {
+  if (event.initialSpawn) return;
+  const player = event.player;
+  if (!player.getDynamicProperty("__bw_died")) return;
+  player.setDynamicProperty("__bw_died", undefined);
+  GameManager.handlePlayerRespawn(player);
 }
 </script>

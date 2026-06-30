@@ -1,7 +1,7 @@
 import { Player, world, system, GameMode, Entity, ItemStack } from "@minecraft/server";
 import type { I18nKeyList } from "../types";
 import { t } from "../i18n/locals";
-import { BedwarsInstanceData, TeamColor } from "../types";
+import { BedwarsInstanceData, TeamColor, BedwarsTeamData } from "../types";
 import InstanceManager from "./InstanceManager";
 import ShopManager from "./ShopManager";
 import { TEAM_WOOL_MAP, TEAM_COLOR_NAMES, MAP_Y, getMapLayout, STRUCTURES } from "./config";
@@ -12,7 +12,7 @@ const PLAYER_IS_ALIVE_KEY = "__bw_alive";
 const PLAYER_IS_SPECTATOR_KEY = "__bw_spectator";
 const PLAYER_RESPAWN_KEY = "__bw_respawning";
 
-const IRON_INTERVAL = 2;
+const IRON_INTERVAL = 4;
 const GOLD_INTERVAL = 20;
 const DIAMOND_INTERVAL = 60;
 const SCOREBOARD_OBJ = "bedwarsscore";
@@ -35,9 +35,9 @@ class GameManager {
       const tick = (this._instanceTick[inst.id] || 0) + 1;
       this._instanceTick[inst.id] = tick;
       this._spawnResources(inst, tick);
-      this._checkPlayerFalls(inst);
       this._protectShopBees(inst);
       this._updateScoreboard(inst);
+      this._checkWinCondition(inst);
     }
     if (instances.length === 0 && this._scoreboardActive) {
       this._removeScoreboard();
@@ -78,6 +78,9 @@ class GameManager {
     this._ensureScoreboard();
     const dim = world.getDimension("overworld");
     try {
+      try { dim.runCommand(`scoreboard objectives remove ${SCOREBOARD_OBJ}`); } catch { }
+      dim.runCommand(`scoreboard objectives add ${SCOREBOARD_OBJ} dummy Bedwars`);
+      dim.runCommand(`scoreboard objectives setdisplay sidebar ${SCOREBOARD_OBJ}`);
       dim.runCommand(`scoreboard players set "${t("scoreboardTitle")}" ${SCOREBOARD_OBJ} 100`);
       dim.runCommand(`scoreboard players set "${t("scoreboardStatus", { name: inst.name, status: inst.status })}" ${SCOREBOARD_OBJ} 99`);
       let idx = 98;
@@ -87,11 +90,30 @@ class GameManager {
           const p = world.getEntity(id);
           return p && !p.getDynamicProperty(PLAYER_IS_SPECTATOR_KEY);
         }).length;
-        const bed = team.bedAlive ? t("bedAliveLabel") : t("bedDestroyedLabel");
+        const bed = team.bedAlive ? "§a√" : "§c×";
         dim.runCommand(`scoreboard players set "${t("scoreboardTeamLine", { color: colorName, bed: bed, alive: String(alive) })}" ${SCOREBOARD_OBJ} ${idx}`);
         idx--;
       }
     } catch { }
+  }
+
+  private static _checkWinCondition(inst: BedwarsInstanceData) {
+    const aliveTeams: BedwarsTeamData[] = [];
+    for (const team of inst.teams) {
+      if (team.players.length === 0) continue;
+      const alivePlayers = team.players.filter(pid => {
+        const p = world.getEntity(pid);
+        return p && !p.getDynamicProperty(PLAYER_IS_SPECTATOR_KEY);
+      });
+      if (team.bedAlive || alivePlayers.length > 0) {
+        aliveTeams.push(team);
+      }
+    }
+    if (aliveTeams.length <= 1 && aliveTeams.length > 0) {
+      const winner = aliveTeams[0];
+      world.sendMessage(t("gameWin", { color: TEAM_COLOR_NAMES[winner.color], name: inst.name }));
+      this.endGame(inst.id);
+    }
   }
 
   private static _protectShopBees(inst: BedwarsInstanceData) {
@@ -112,28 +134,16 @@ class GameManager {
     const dim = world.getDimension("overworld");
     for (const team of inst.teams) {
       if (team.ironPosition && tick % IRON_INTERVAL === 0) {
-        try { dim.spawnItem(new ItemStack("minecraft:iron_ingot", 1), team.ironPosition); } catch { }
+        console.log(`BW Spawning iron at ${JSON.stringify(team.ironPosition)} for team ${team.color}`);
+        try { dim.spawnItem(new ItemStack("minecraft:iron_ingot", 1), team.ironPosition); } catch (e) { console.log(`BW iron spawn fail: ${e}`); }
       }
       if (team.goldPosition && tick % GOLD_INTERVAL === 0) {
-        try { dim.spawnItem(new ItemStack("minecraft:gold_ingot", 1), team.goldPosition); } catch { }
+        console.log(`BW Spawning gold at ${JSON.stringify(team.goldPosition)} for team ${team.color}`);
+        try { dim.spawnItem(new ItemStack("minecraft:gold_ingot", 1), team.goldPosition); } catch (e) { console.log(`BW gold spawn fail: ${e}`); }
       }
       if (team.diamondPosition && tick % DIAMOND_INTERVAL === 0) {
-        try { dim.spawnItem(new ItemStack("minecraft:diamond", 1), team.diamondPosition); } catch { }
-      }
-    }
-  }
-
-  private static _checkPlayerFalls(inst: BedwarsInstanceData) {
-    const initY = MAP_Y;
-    const dim = world.getDimension("overworld");
-    for (const team of inst.teams) {
-      for (const playerId of team.players) {
-        const player = world.getEntity(playerId) as Player;
-        if (!player) continue;
-        if (player.getDynamicProperty(PLAYER_IS_SPECTATOR_KEY)) continue;
-        if (player.location.y < initY - 5) {
-          player.teleport({ x: inst.initIslandX, y: initY + 5, z: inst.initIslandZ }, { dimension: dim });
-        }
+        console.log(`BW Spawning diamond at ${JSON.stringify(team.diamondPosition)} for team ${team.color}`);
+        try { dim.spawnItem(new ItemStack("minecraft:diamond", 1), team.diamondPosition); } catch (e) { console.log(`BW diamond spawn fail: ${e}`); }
       }
     }
   }
@@ -193,20 +203,66 @@ class GameManager {
     const dim = world.getDimension("overworld");
 
     (system.runJob as any)((function*() {
-      InstanceManager.loadAllMapsDirect(dim, instanceId);
-      yield;
+      const layout = getMapLayout(inst.x, inst.z);
 
+      // Find a player to act as scout (teleport around to force chunk loading)
+      let scout: Player | null = null;
+      for (const team of inst.teams) {
+        for (const pid of team.players) {
+          const p = world.getEntity(pid) as Player;
+          if (p) { scout = p; break; }
+        }
+        if (scout) break;
+      }
+
+      // Place all structures (teams, small islands, center)
+      for (const team of layout.teams) {
+        const info = STRUCTURES[team.structureKey];
+        world.structureManager.place(info.id, dim, { x: team.placeOffset[0], y: team.placeOffset[1], z: team.placeOffset[2] });
+        if (scout) {
+          scout.teleport({ x: team.placeOffset[0] + 9, y: MAP_Y + 5, z: team.placeOffset[2] + 9 }, { dimension: dim });
+          yield system.waitTicks(3);
+        }
+      }
+      for (const island of layout.smallIslands) {
+        const info = STRUCTURES[island.structureKey];
+        world.structureManager.place(info.id, dim, { x: island.placeOffset[0], y: island.placeOffset[1], z: island.placeOffset[2] });
+        if (scout) {
+          scout.teleport({ x: island.placeOffset[0] + 3, y: MAP_Y + 5, z: island.placeOffset[2] + 3 }, { dimension: dim });
+          yield system.waitTicks(3);
+        }
+      }
+      const centerInfo = STRUCTURES[layout.center.structureKey];
+      world.structureManager.place(centerInfo.id, dim, { x: layout.center.placeOffset[0], y: layout.center.placeOffset[1], z: layout.center.placeOffset[2] });
+      if (scout) {
+        scout.teleport({ x: layout.center.placeOffset[0] + 22, y: MAP_Y + 5, z: layout.center.placeOffset[2] + 23 }, { dimension: dim });
+        yield system.waitTicks(3);
+      }
+
+      // Resolve all positions from config (iron, gold, diamond, bed, shop) and kill armor stands
+      InstanceManager.resolveAllPositions(dim, instanceId);
+
+      // Add ticking areas to keep all game chunks loaded throughout gameplay
+      InstanceManager.addGameTickingAreas(dim, instanceId);
+
+      // Return scout to init island
+      if (scout) {
+        try { scout.teleport({ x: inst.initIslandX, y: MAP_Y + 5, z: inst.initIslandZ }, { dimension: dim }); } catch { }
+      }
+
+      // Teleport all players to init island, clear inventory
       for (const team of inst.teams) {
         for (const playerId of team.players) {
           const p = world.getEntity(playerId) as Player;
           if (!p) continue;
-          const inv2 = p.getComponent("inventory")?.container;
-          if (inv2) for (let i = 0; i < inv2.size; i++) inv2.setItem(i, undefined);
+          const inv = p.getComponent("inventory")?.container;
+          if (inv) for (let i = 0; i < inv.size; i++) inv.setItem(i, undefined);
           p.addEffect("regeneration", 100, { amplifier: 255, showParticles: false });
           p.teleport({ x: inst.initIslandX, y: MAP_Y + 5, z: inst.initIslandZ }, { dimension: dim });
         }
       }
 
+      // Countdown
       for (let i = 5; i >= 1; i--) {
         for (const team of inst.teams) {
           for (const playerId of team.players) {
@@ -217,6 +273,7 @@ class GameManager {
         yield system.waitTicks(20);
       }
 
+      // Teleport to beds, set survival, spawn shop bees
       for (const team of inst.teams) {
         for (const playerId of team.players) {
           const p = world.getEntity(playerId) as Player;
@@ -228,6 +285,7 @@ class GameManager {
           } else {
             p.teleport({ x: inst.x, y: MAP_Y + 5, z: inst.z }, { dimension: dim });
           }
+          yield system.waitTicks(1);
           GameManager._spawnShopBee(p, team);
         }
       }
@@ -257,7 +315,7 @@ class GameManager {
     } catch (e) { console.warn("Failed to spawn shop bee: " + e); }
   }
 
-  static handlePlayerDeath(player: Player) {
+  static handlePlayerRespawn(player: Player) {
     const instanceId = player.getDynamicProperty(PLAYER_INSTANCE_KEY) as string;
     if (!instanceId) return;
     const inst = InstanceManager.getInstance(instanceId);
@@ -266,22 +324,27 @@ class GameManager {
     const team = inst.teams.find(t => t.color === teamColor);
     if (!team) return;
 
-    player.setDynamicProperty(PLAYER_IS_ALIVE_KEY, false);
-
     if (team.bedAlive) {
       player.setDynamicProperty(PLAYER_RESPAWN_KEY, true);
       const dim = world.getDimension("overworld");
-      player.teleport({ x: inst.initIslandX, y: MAP_Y + 5, z: inst.initIslandZ }, { dimension: dim });
-      player.setGameMode(GameMode.Adventure);
 
       (system.runJob as any)((function*() {
-        for (let i = 5; i >= 1; i--) {
+        try {
+          if (!player.isValid) return;
+          player.teleport({ x: inst.initIslandX, y: MAP_Y + 5, z: inst.initIslandZ }, { dimension: dim });
+          player.setGameMode(GameMode.Adventure);
+        } catch { return; }
+
+        yield system.waitTicks(10);
+
+        for (let i = 3; i >= 1; i--) {
           try {
             if (!player.isValid) return;
             player.onScreenDisplay.setTitle(t("respawnCountdown", { time: String(i) }));
           } catch { return; }
           yield system.waitTicks(20);
         }
+
         try {
           if (!player.isValid) return;
           player.setGameMode(GameMode.Survival);
@@ -304,9 +367,21 @@ class GameManager {
       })());
     } else {
       player.setDynamicProperty(PLAYER_IS_SPECTATOR_KEY, true);
-      player.setGameMode(GameMode.Spectator);
+      const dim = world.getDimension("overworld");
+      system.run(() => {
+        if (team.bedPosition) {
+          player.teleport({ x: team.bedPosition.x, y: team.bedPosition.y + 1, z: team.bedPosition.z }, { dimension: dim });
+        } else {
+          player.teleport({ x: inst.x, y: MAP_Y + 5, z: inst.z }, { dimension: dim });
+        }
+        player.setGameMode(GameMode.Spectator);
+      });
       player.sendMessage(t("bedDestroyedMsg"));
     }
+  }
+
+  static handlePlayerDeath(player: Player) {
+    player.setDynamicProperty(PLAYER_IS_ALIVE_KEY, false);
   }
 
   static endGame(instanceId: string) {
@@ -397,19 +472,29 @@ class GameManager {
     const dim = player.dimension;
     const loc = player.getHeadLocation();
     const dir = player.getViewDirection();
-    const inv = player.getComponent("inventory");
-    if (inv && inv.container) {
-      const slt = (player as any).selectedSlotIndex;
-      if (slt !== undefined) {
-        const si = inv.container.getItem(slt);
-        if (si && si.typeId === "minecraft:fire_charge") {
-          si.amount -= 1;
-          if (si.amount <= 0) inv.container.setItem(slt, undefined);
-          else inv.container.setItem(slt, si);
-        }
-      }
-    }
-    try { dim.spawnEntity("minecraft:fireball", { x: loc.x + dir.x * 2, y: loc.y + dir.y * 2, z: loc.z + dir.z * 2 }); } catch { }
+    const spawnX = loc.x + dir.x * 2;
+    const spawnY = loc.y + dir.y;
+    const spawnZ = loc.z + dir.z * 2;
+    const velocity = { x: dir.x * 2, y: dir.y * 2, z: dir.z * 2 };
+    // Try summon via command (bypasses is_summonable)
+    try {
+      dim.runCommand(`summon minecraft:fireball ${spawnX} ${spawnY} ${spawnZ}`);
+      system.run(() => {
+        try {
+          const fbs = dim.getEntities({ type: "minecraft:fireball", location: { x: spawnX, y: spawnY, z: spawnZ }, maxDistance: 3 });
+          if (fbs.length > 0) { fbs[0].applyImpulse(velocity); console.log("BW Fireball impulse applied"); }
+        } catch (e2) { console.log("BW impulse error: " + e2); }
+      });
+      return;
+    } catch (e) { console.log("BW summon fireball failed: " + e); }
+    // Fallback: flaming arrow
+    try {
+      const arrow = dim.spawnEntity("minecraft:arrow", { x: spawnX, y: spawnY, z: spawnZ });
+      arrow.setOnFire(100);
+      const proj = arrow.getComponent("minecraft:projectile") as any;
+      if (proj && proj.shoot) { proj.shoot(velocity); } else { arrow.applyImpulse(velocity); }
+      console.log("BW Used arrow fallback");
+    } catch (e3) { console.log("BW All failed: " + e3); }
   }
 
   static sendToHub(player: Player) {

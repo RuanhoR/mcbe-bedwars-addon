@@ -96,7 +96,8 @@ export type I18nKeyList =
   | "restartHint"
   | "scoreboardTitle"
   | "scoreboardStatus"
-  | "scoreboardTeamLine";
+  | "scoreboardTeamLine"
+  | "gameWin";
 
 export const I18nLanguageKeyArr = ["zh", "en"] as const;
 export type I18nLanguageList = (typeof I18nLanguageKeyArr)[number];

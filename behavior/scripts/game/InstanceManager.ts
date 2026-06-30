@@ -1,6 +1,6 @@
 import { Player, world, Dimension, system } from "@minecraft/server";
 import { WorldDynamicPropertyKeys, BedwarsInstanceData, BedwarsGlobalData, BedwarsTeamData, TeamColor, TEAM_COLORS } from "../types";
-import { MAP_Y, getMapLayout, STRUCTURES } from "./config";
+import { MAP_Y, getMapLayout, STRUCTURES, MapLayout } from "./config";
 import { fillAir, getStructureBounds, sleepTicks } from "../utils/worldEditUtils";
 import { t } from "../i18n/locals";
 
@@ -127,25 +127,47 @@ class InstanceManager {
     sender.teleport({ x: x, y: MAP_Y + 5, z: z }, { dimension });
   }
 
-  static clearInstanceMap(dimension: Dimension, id: string) {
-    const inst = this.getInstance(id);
+  static addGameTickingAreas(dim: Dimension, instanceId: string) {
+    const inst = this.getInstance(instanceId);
     if (!inst) return;
     const layout = getMapLayout(inst.x, inst.z);
+    const allBounds = this._getAllBounds(layout);
+    let idx = 0;
+    for (const b of allBounds) {
+      try {
+        dim.runCommand(`tickingarea add ${b.min.x} ${b.min.y} ${b.min.z} ${b.max.x} ${b.max.y} ${b.max.z} bw_game_${instanceId}_${idx} true`);
+      } catch { }
+      idx++;
+    }
+  }
 
+  static removeGameTickingAreas(dim: Dimension, instanceId: string) {
+    for (let idx = 0; idx < 20; idx++) {
+      try { dim.runCommand(`tickingarea remove bw_game_${instanceId}_${idx}`); } catch { }
+    }
+  }
+
+  private static _getAllBounds(layout: MapLayout): { min: { x: number; y: number; z: number }; max: { x: number; y: number; z: number } }[] {
     const allBounds: { min: { x: number; y: number; z: number }; max: { x: number; y: number; z: number } }[] = [];
-
     const centerInfo = STRUCTURES[layout.center.structureKey];
     allBounds.push(getStructureBounds(layout.center.placeOffset[0], layout.center.placeOffset[1], layout.center.placeOffset[2], centerInfo.size));
-
     for (const team of layout.teams) {
       const info = STRUCTURES[team.structureKey];
       allBounds.push(getStructureBounds(team.placeOffset[0], team.placeOffset[1], team.placeOffset[2], info.size));
     }
-
     for (const island of layout.smallIslands) {
       const info = STRUCTURES[island.structureKey];
       allBounds.push(getStructureBounds(island.placeOffset[0], island.placeOffset[1], island.placeOffset[2], info.size));
     }
+    return allBounds;
+  }
+
+  static clearInstanceMap(dimension: Dimension, id: string) {
+    const inst = this.getInstance(id);
+    if (!inst) return;
+    this.removeGameTickingAreas(dimension, id);
+    const layout = getMapLayout(inst.x, inst.z);
+    const allBounds = this._getAllBounds(layout);
 
     for (const b of allBounds) {
       try {
@@ -200,7 +222,7 @@ class InstanceManager {
     sender.teleport({ x: inst.x, y: MAP_Y + 5, z: inst.z }, { dimension: dim });
     await sleepTicks(10);
     const centerEntities = this.findArmorStands(dim, layout.center.placeOffset[0], layout.center.placeOffset[1], layout.center.placeOffset[2], centerInfo.size);
-    this._processCenterEntities(inst, centerEntities);
+    this.processCenterEntities(inst, centerEntities);
 
     for (let i = 0; i < layout.teams.length; i++) {
       const team = layout.teams[i];
@@ -210,7 +232,7 @@ class InstanceManager {
       sender.teleport({ x: team.placeOffset[0] + 9, y: MAP_Y + 5, z: team.placeOffset[2] + 9 }, { dimension: dim });
       await sleepTicks(10);
       const entities = this.findArmorStands(dim, team.placeOffset[0], team.placeOffset[1], team.placeOffset[2], info.size);
-      this._processTeamEntities(inst, team.color, entities);
+      this.processTeamEntities(inst, team.color, entities);
     }
 
     for (let i = 0; i < layout.smallIslands.length; i++) {
@@ -220,7 +242,7 @@ class InstanceManager {
       world.structureManager.place(info.id, dim, { x: island.placeOffset[0], y: island.placeOffset[1], z: island.placeOffset[2] });
       await sleepTicks(5);
       const entities = this.findArmorStands(dim, island.placeOffset[0], island.placeOffset[1], island.placeOffset[2], info.size);
-      this._processIslandEntities(inst, entities);
+      this.processIslandEntities(inst, entities);
     }
 
     this.updateInstance(instanceId, (inst) => {
@@ -235,38 +257,84 @@ class InstanceManager {
     return true;
   }
 
-  static loadAllMapsDirect(dim: Dimension, instanceId: string) {
+  static placeAllStructures(dim: Dimension, instanceId: string) {
     const inst = this.getInstance(instanceId);
     if (!inst) return;
     const layout = getMapLayout(inst.x, inst.z);
 
     const centerInfo = STRUCTURES[layout.center.structureKey];
     world.structureManager.place(centerInfo.id, dim, { x: layout.center.placeOffset[0], y: layout.center.placeOffset[1], z: layout.center.placeOffset[2] });
-    const centerEntities = this.findArmorStands(dim, layout.center.placeOffset[0], layout.center.placeOffset[1], layout.center.placeOffset[2], centerInfo.size);
-    this._processCenterEntities(inst, centerEntities);
 
-    for (let i = 0; i < layout.teams.length; i++) {
-      const team = layout.teams[i];
+    for (const team of layout.teams) {
       const info = STRUCTURES[team.structureKey];
       world.structureManager.place(info.id, dim, { x: team.placeOffset[0], y: team.placeOffset[1], z: team.placeOffset[2] });
-      const entities = this.findArmorStands(dim, team.placeOffset[0], team.placeOffset[1], team.placeOffset[2], info.size);
-      this._processTeamEntities(inst, team.color, entities);
     }
 
-    for (let i = 0; i < layout.smallIslands.length; i++) {
-      const island = layout.smallIslands[i];
+    for (const island of layout.smallIslands) {
       const info = STRUCTURES[island.structureKey];
       world.structureManager.place(info.id, dim, { x: island.placeOffset[0], y: island.placeOffset[1], z: island.placeOffset[2] });
-      const entities = this.findArmorStands(dim, island.placeOffset[0], island.placeOffset[1], island.placeOffset[2], info.size);
-      this._processIslandEntities(inst, entities);
     }
+  }
+
+  static resolveAllPositions(dim: Dimension, instanceId: string) {
+    const inst = this.getInstance(instanceId);
+    if (!inst) return;
+    const layout = getMapLayout(inst.x, inst.z);
+
+    // Teams first — so they get their own iron/gold/bed/shop positions
+    for (const team of layout.teams) {
+      const teamPositions = team.entities.map(e => ({
+        name: e.customName,
+        position: {
+          x: Math.floor(team.placeOffset[0] + e.relPos[0]),
+          y: Math.floor(team.placeOffset[1] + e.relPos[1]),
+          z: Math.floor(team.placeOffset[2] + e.relPos[2]),
+        },
+      }));
+      this.processTeamEntities(inst, team.color, teamPositions);
+      this._killAt(dim, teamPositions);
+    }
+
+    // Small islands — fills any remaining iron/gold slots
+    for (const island of layout.smallIslands) {
+      const islandPositions = island.entities.map(e => ({
+        name: e.customName,
+        position: {
+          x: Math.floor(island.placeOffset[0] + e.relPos[0]),
+          y: Math.floor(island.placeOffset[1] + e.relPos[1]),
+          z: Math.floor(island.placeOffset[2] + e.relPos[2]),
+        },
+      }));
+      this.processIslandEntities(inst, islandPositions);
+      this._killAt(dim, islandPositions);
+    }
+
+    // Center last — fills anything still missing (diamond, extra iron/gold)
+    const centerPositions = layout.center.entities.map(e => ({
+      name: e.customName,
+      position: {
+        x: Math.floor(layout.center.placeOffset[0] + e.relPos[0]),
+        y: Math.floor(layout.center.placeOffset[1] + e.relPos[1]),
+        z: Math.floor(layout.center.placeOffset[2] + e.relPos[2]),
+      },
+    }));
+    this.processCenterEntities(inst, centerPositions);
+    this._killAt(dim, centerPositions);
 
     this.updateInstance(instanceId, (inst) => {
       for (const team of inst.teams) team.bedAlive = true;
     });
   }
 
-  private static _processCenterEntities(inst: BedwarsInstanceData, entities: { name: string; position: { x: number; y: number; z: number } }[]) {
+  private static _killAt(dim: Dimension, positions: { position: { x: number; y: number; z: number } }[]) {
+    for (const p of positions) {
+      try {
+        dim.runCommand(`kill @e[type=armor_stand,x=${p.position.x},y=${p.position.y},z=${p.position.z},r=2]`);
+      } catch { }
+    }
+  }
+
+  static processCenterEntities(inst: BedwarsInstanceData, entities: { name: string; position: { x: number; y: number; z: number } }[]) {
     for (const e of entities) {
       switch (e.name) {
         case "brige_lookup":
@@ -288,16 +356,16 @@ class InstanceManager {
     }
   }
 
-  private static _processTeamEntities(inst: BedwarsInstanceData, color: TeamColor, entities: { name: string; position: { x: number; y: number; z: number } }[]) {
+  static processTeamEntities(inst: BedwarsInstanceData, color: TeamColor, entities: { name: string; position: { x: number; y: number; z: number } }[]) {
     const team = inst.teams.find(t => t.color === color);
     if (!team) return;
     for (const e of entities) {
       switch (e.name) {
         case "brige_lookup":
-          team.ironPosition = team.ironPosition || e.position;
+          team.ironPosition = e.position;
           break;
         case "brige_lookup_gold":
-          team.goldPosition = team.goldPosition || e.position;
+          team.goldPosition = e.position;
           break;
         case "brige_bed":
           team.bedPosition = e.position;
@@ -310,7 +378,7 @@ class InstanceManager {
     this._save();
   }
 
-  private static _processIslandEntities(inst: BedwarsInstanceData, entities: { name: string; position: { x: number; y: number; z: number } }[]) {
+  static processIslandEntities(inst: BedwarsInstanceData, entities: { name: string; position: { x: number; y: number; z: number } }[]) {
     for (const e of entities) {
       switch (e.name) {
         case "brige_lookup":

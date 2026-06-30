@@ -19,9 +19,9 @@ export default defineConfig({
   },
   outdir: {
     resources:
-      "C:\\Users\\zcvb1\\AppData\\Roaming\\Minecraft Bedrock\\users\\shared\\games\\com.mojang\\development_resource_packs\\bedwar",
+      "./dist/res",
     behavior:
-      "C:\\Users\\zcvb1\\AppData\\Roaming\\Minecraft Bedrock\\users\\shared\\games\\com.mojang\\development_behavior_packs\\bedwars",
+      "./dist/dep",
     dist: "./dist.mcaddon",
   },
 });

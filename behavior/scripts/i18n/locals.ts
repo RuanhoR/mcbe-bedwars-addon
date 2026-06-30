@@ -94,6 +94,7 @@ const lang = {
     scoreboardTitle: "§c§lbedWars",
     scoreboardStatus: "§7{name} §8- §a{status}",
     scoreboardTeamLine: "  {color}: {bed} §f{alive}人",
+    gameWin: "§6§l{color} §a队赢得了本场比赛！",
   },
   en: {
     addOp: "Add OP Manager (Bedwars Only)",
@@ -188,6 +189,7 @@ const lang = {
     scoreboardTitle: "§c§lbedWars",
     scoreboardStatus: "§7{name} §8- §a{status}",
     scoreboardTeamLine: "  {color}: {bed} §f{alive} players",
+    gameWin: "§6§l{color} §ateam wins the game!",
   },
 } satisfies {
   [key in I18nLanguageList]: { [key in I18nKeyList]: string };
