@@ -18,7 +18,7 @@ const DIAMOND_INTERVAL = 60; // every 60 loop ticks (30s)
 class GameManager {
   private static _gameLoopId: number | null = null;
   private static _runningGames: Set<string> = new Set();
-  private static _instanceTickCount: Map<string, number> = new Map();
+  private static _instanceTick: Record<string, number> = {};
 
   static init() {
     if (this._gameLoopId !== null) return;
@@ -30,8 +30,8 @@ class GameManager {
   private static _tick() {
     const instances = InstanceManager.getInstances().filter(i => i.status === "playing");
     for (const inst of instances) {
-      const tick = (this._instanceTickCount.get(inst.id) || 0) + 1;
-      this._instanceTickCount.set(inst.id, tick);
+      const tick = (this._instanceTick[inst.id] || 0) + 1;
+      this._instanceTick[inst.id] = tick;
       this._spawnResources(inst, tick);
       this._checkPlayerFalls(inst);
       this._protectShopBees(inst);
@@ -57,7 +57,7 @@ class GameManager {
     for (const team of inst.teams) {
       if (team.ironPosition && tick % IRON_INTERVAL === 0) {
         try {
-          dim.spawnItem(new ItemStack("minecraft:iron_ingot", 4), team.ironPosition);
+          dim.spawnItem(new ItemStack("minecraft:iron_ingot", 1), team.ironPosition);
         } catch { }
       }
       if (team.goldPosition && tick % GOLD_INTERVAL === 0) {
