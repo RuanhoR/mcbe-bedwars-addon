@@ -6,7 +6,7 @@ import {
 } from "@minecraft/server";
 import { addOp, getOnlineOps, removeOp } from "../utils/playerPermission";
 
-const command = new Command("bedwars:op");
+const command = new Command("bedwars:bwop");
 command.setDescription("Set bedwars OP Manger");
 command.addMandatoryParameter("optional", "string");
 command.addOptionalParameter("playerName", "string");

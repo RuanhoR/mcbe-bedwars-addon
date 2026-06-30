@@ -362,7 +362,9 @@ class GameManager {
     }
     InstanceManager.updateInstance(instanceId, () => {});
 
-    player.setGameMode(GameMode.Adventure);
+    system.run(() => {
+      player.setGameMode(GameMode.Adventure);
+    });
     player.sendMessage(t("leaveGameMsg"));
     player.setDynamicProperty(PLAYER_TEAM_KEY, undefined);
     player.setDynamicProperty(PLAYER_INSTANCE_KEY, undefined);
