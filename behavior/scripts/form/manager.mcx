@@ -1,8 +1,15 @@
 <Ui>
-  <title>OP Manger</title>
-  <button click="openMangerMenu">{{ mangeOP }}</button>
-  <button click="openBedwarsManager">{{ bedwarsManager }}</button>
+  <title>
+    OP Manger
+  </title>
+  <button click="openMangerMenu">
+    {{ mangeOP }}
+  </button>
+  <button click="openBedwarsManager">
+    {{ bedwarsManager }}
+  </button>
 </Ui>
+
 <script lang="ts">
 import { Player, world } from "@minecraft/server";
 import { ActionFormData } from "@minecraft/server-ui";
@@ -11,14 +18,18 @@ import BedwarsManager from "./bedwarsManager.mcx"
 import { t } from "../i18n/locals";
 import GameManager from "../game/GameManager";
 export function openMangerMenu(_res: ActionFormData, player: Player) {
-  OpManger.app.ui.show(player as any, {
+  OpManger.app.ui.show(
+    // @ts-ignore
+    player, {
     addOp: t("addOp"),
     removeOp: t("removeOp")
   });
 }
 export function openBedwarsManager(_res: ActionFormData, player: Player) {
   GameManager.init();
-  BedwarsManager.app.ui.show(player as any, {
+  BedwarsManager.app.ui.show(
+    // @ts-ignore
+    player, {
     createInstance: t("createInstance"),
     deleteInstance: t("deleteInstance"),
     instanceList: t("instanceList"),

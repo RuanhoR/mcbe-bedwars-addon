@@ -1,4 +1,10 @@
-import { Player, ItemStack, Entity, EnchantmentType } from "@minecraft/server";
+import {
+  Player,
+  ItemStack,
+  Entity,
+  EnchantmentType,
+  EquipmentSlot,
+} from "@minecraft/server";
 import { ActionFormData } from "@minecraft/server-ui";
 import { TeamColor, ShopItemDef, ShopCost } from "../types";
 import { SHOP_ITEMS, TEAM_WOOL_MAP, TEAM_COLOR_NAMES } from "./config";
@@ -27,14 +33,25 @@ class ShopManager {
   }
 
   private static _formatCost(item: ShopItemDef): string {
-    return item.cost.map(c => `§e${c.count} ${c.itemId.split(":")[1].replace("_", " ")}`).join(" + ");
+    return item.cost
+      .map((c) => `§e${c.count} ${c.itemId.split(":")[1].replace("_", " ")}`)
+      .join(" + ");
   }
 
-  private static _processPurchase(player: Player, teamColor: TeamColor, itemDef: ShopItemDef) {
+  private static _processPurchase(
+    player: Player,
+    teamColor: TeamColor,
+    itemDef: ShopItemDef,
+  ) {
     for (const cost of itemDef.cost) {
       const has = this._countItem(player, cost.itemId) >= cost.count;
       if (!has) {
-        player.sendMessage(t("notEnoughItems", { count: String(cost.count), item: cost.itemId.split(":")[1] }));
+        player.sendMessage(
+          t("notEnoughItems", {
+            count: String(cost.count),
+            item: cost.itemId.split(":")[1],
+          }),
+        );
         return;
       }
     }
@@ -83,7 +100,11 @@ class ShopManager {
     }
   }
 
-  private static _giveItem(player: Player, itemDef: ShopItemDef, teamColor: TeamColor) {
+  private static _giveItem(
+    player: Player,
+    itemDef: ShopItemDef,
+    teamColor: TeamColor,
+  ) {
     const result = itemDef.result;
     let itemId = result.itemId;
 
@@ -98,12 +119,17 @@ class ShopManager {
     }
 
     if (itemDef.enchantments) {
-      const enchComponent = itemStack.getComponent("minecraft:enchantable") as any;
+      const enchComponent = itemStack.getComponent("minecraft:enchantable");
       if (enchComponent) {
         for (const ench of itemDef.enchantments) {
           try {
-            enchComponent.addEnchantment({ type: new EnchantmentType(ench.id), level: ench.level });
-          } catch (e) { console.log(`BW Enchant fail ${ench.id}: ${e}`); }
+            enchComponent.addEnchantment({
+              type: new EnchantmentType(ench.id),
+              level: ench.level,
+            });
+          } catch (e) {
+            console.log(`BW Enchant fail ${ench.id}: ${e}`);
+          }
         }
       }
     }
@@ -148,27 +174,44 @@ class ShopManager {
     const armorSet = armorMap[id];
     if (!armorSet) return;
 
-    const equipment = player.getComponent("equippable") as any;
+    const equipment = player.getComponent("equippable");
     if (!equipment) return;
 
     for (const piece of armorSet) {
       const stack = new ItemStack(piece.itemId, 1);
-      const enchComponent = stack.getComponent("minecraft:enchantable") as any;
+      const enchComponent = stack.getComponent("minecraft:enchantable");
       if (enchComponent) {
         if (itemDef.enchantments) {
           for (const ench of itemDef.enchantments) {
-            try { enchComponent.addEnchantment({ type: new EnchantmentType(ench.id), level: ench.level }); } catch (e) { console.log(`BW Armor enchant fail ${ench.id}: ${e}`); }
+            try {
+              enchComponent.addEnchantment({
+                type: new EnchantmentType(ench.id),
+                level: ench.level,
+              });
+            } catch (e) {
+              console.log(`BW Armor enchant fail ${ench.id}: ${e}`);
+            }
           }
         }
-        try { enchComponent.addEnchantment({ type: new EnchantmentType("binding"), level: 1 }); } catch (e) { console.log(`BW Binding enchant fail: ${e}`); }
+        try {
+          enchComponent.addEnchantment({
+            type: new EnchantmentType("binding"),
+            level: 1,
+          });
+        } catch (e) {
+          console.log(`BW Binding enchant fail: ${e}`);
+        }
       }
       try {
-        equipment.setEquipment(piece.slot as any, stack);
-      } catch { }
+        equipment.setEquipment(piece.slot as EquipmentSlot, stack);
+      } catch {}
     }
   }
 
-  static handleProjectileHit(owner: Entity, hitBlock: { x: number; y: number; z: number }) {
+  static handleProjectileHit(
+    owner: Entity,
+    hitBlock: { x: number; y: number; z: number },
+  ) {
     if (!owner.getDynamicProperty("__bw_instance")) return;
 
     const teamColor = owner.getDynamicProperty("__bw_team") as TeamColor;
@@ -180,11 +223,15 @@ class ShopManager {
     for (let dx = -1; dx <= 1; dx++) {
       for (let dz = -1; dz <= 1; dz++) {
         try {
-          const bp = dim.getBlock({ x: hitBlock.x + dx, y: hitBlock.y, z: hitBlock.z + dz });
+          const bp = dim.getBlock({
+            x: hitBlock.x + dx,
+            y: hitBlock.y,
+            z: hitBlock.z + dz,
+          });
           if (bp && bp.typeId === "minecraft:air") {
             bp.setType(woolId);
           }
-        } catch { }
+        } catch {}
       }
     }
   }
