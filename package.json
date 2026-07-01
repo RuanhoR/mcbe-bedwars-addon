@@ -7,8 +7,9 @@
   },
   "scripts": {
     "dev": "mbler watch",
-    "build": "mcx-tsc && cross-env BUILD_MODULE=release mbler build",
-    "dev-build": "mbler build"
+    "build": "cross-env BUILD_MODULE=release mbler build",
+    "dev-build": "mbler build",
+    "type-check": "mcx-tsc"
   },
   "type": "module",
   "dependencies": {
