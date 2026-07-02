@@ -136,7 +136,7 @@ class GameManager {
         const p = world.getEntity(pid);
         return p && !p.getDynamicProperty(PLAYER_IS_SPECTATOR_KEY);
       });
-      if (team.bedAlive || alivePlayers.length > 0) {
+      if (alivePlayers.length > 0) {
         aliveTeams.push(team);
       }
     }
