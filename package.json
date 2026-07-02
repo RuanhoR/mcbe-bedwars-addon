@@ -18,12 +18,11 @@
     "@mbler/mcx-types": "0.0.4-rc.3"
   },
   "devDependencies": {
-    "@mbler/mcx-core": "0.1.2-rc.10",
     "@minecraft/server": "2.9.0-beta.1.26.31-stable",
     "@minecraft/server-ui": "2.2.0-beta.1.26.31-stable",
     "@types/node": "^26.0.1",
     "cross-env": "^10.1.0",
-    "mbler": "0.2.8-rc.9",
+    "mbler": "0.2.8-rc.13",
     "prismarine-nbt": "^2.8.0"
   }
 }

@@ -16,7 +16,8 @@ import {
   system,
   EntityProjectileComponent,
   Player,
-PlayerBreakBlockAfterEvent,
+  PlayerBreakBlockAfterEvent,
+  PlayerSpawnAfterEvent,
 } from "@minecraft/server";
 import { isOp } from "./utils/playerPermission";
 import mangerMcx from "./form/manager.mcx";
@@ -24,6 +25,8 @@ import { t } from "./i18n/locals";
 import GameManager from "./game/GameManager";
 import ShopManager from "./game/ShopManager";
 import { startTracking } from "./game/BridgeEggTracker";
+import InstanceManager from "./game/InstanceManager";
+import { TEAM_COLOR_NAMES } from "./game/config";
 export function onPlayerBreakBlock(event: PlayerBreakBlockAfterEvent) {
   const block = event.block;
   const typeId = event.brokenBlockPermutation.type.id;
@@ -124,7 +127,7 @@ export function onEntityDie(event: EntityDieAfterEvent) {
   player.setDynamicProperty("__bw_died", true);
 }
 
-export function onPlayerSpawn(event: any) {
+export function onPlayerSpawn(event: PlayerSpawnAfterEvent) {
   if (event.initialSpawn) return;
   const player = event.player;
   if (!player.getDynamicProperty("__bw_died")) return;

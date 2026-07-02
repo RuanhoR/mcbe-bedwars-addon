@@ -289,7 +289,7 @@ class GameManager {
 
     const dim = world.getDimension("overworld");
 
-    system.run(() => {
+    system.runJob(
       (function* () {
         const layout = getMapLayout(inst.x, inst.z);
 
@@ -435,8 +435,8 @@ class GameManager {
             GameManager._spawnShopBee(p, team);
           }
         }
-      })();
-    });
+      })() as unknown as Generator<void, void, void>,
+    );
 
     world.sendMessage(t("gameStartBroadcast", { name: inst.name }));
   }
@@ -450,6 +450,16 @@ class GameManager {
   ) {
     if (!team.shopPosition) return;
     const dim = world.getDimension("overworld");
+    const instanceId = player.getDynamicProperty(PLAYER_INSTANCE_KEY) as string;
+    const existingBees = dim.getEntities({ type: "minecraft:bee" });
+    for (const bee of existingBees) {
+      if (
+        bee.getDynamicProperty("__bw_instance") === instanceId &&
+        bee.getDynamicProperty("__bw_team_color") === team.color
+      ) {
+        try { bee.kill(); } catch {}
+      }
+    }
     try {
       const bee = dim.spawnEntity("minecraft:bee", {
         x: team.shopPosition.x + 0.5,
@@ -458,10 +468,7 @@ class GameManager {
       });
       bee.nameTag = `§6商店 §e(${TEAM_COLOR_NAMES[team.color]}队)`;
       bee.setDynamicProperty("__bw_shop", true);
-      bee.setDynamicProperty(
-        "__bw_instance",
-        player.getDynamicProperty(PLAYER_INSTANCE_KEY),
-      );
+      bee.setDynamicProperty("__bw_instance", instanceId);
       bee.setDynamicProperty("__bw_team_color", team.color);
       bee.setDynamicProperty("__bw_no_move", true);
       system.runInterval(() => {
@@ -495,7 +502,7 @@ class GameManager {
       player.setDynamicProperty(PLAYER_RESPAWN_KEY, true);
       const dim = world.getDimension("overworld");
 
-      system.run(() =>
+      system.runJob(
         (function* () {
           try {
             if (!player.isValid) return;
@@ -559,7 +566,7 @@ class GameManager {
               );
             }
           } catch {}
-        })(),
+        })() as unknown as Generator<void, void, void>,
       );
     } else {
       player.setDynamicProperty(PLAYER_IS_SPECTATOR_KEY, true);
@@ -615,9 +622,21 @@ class GameManager {
       team.players = [];
     }
 
-    system.run(() =>
+    system.runJob(
       (function* () {
         const dim = world.getDimension("overworld");
+        const bees = dim.getEntities({ type: "minecraft:bee" });
+        for (const bee of bees) {
+          if (bee.getDynamicProperty("__bw_instance") === instanceId) {
+            try { bee.kill(); } catch {}
+          }
+        }
+        const fireballs = dim.getEntities({ type: "minecraft:small_fireball" });
+        for (const fb of fireballs) {
+          if (fb.getDynamicProperty("__bw_instance") === instanceId) {
+            try { fb.kill(); } catch {}
+          }
+        }
         for (const playerId of playerIds) {
           const player = world.getEntity(playerId) as Player;
           if (!player) continue;
@@ -695,49 +714,37 @@ class GameManager {
     const dim = player.dimension;
     const loc = player.getHeadLocation();
     const dir = player.getViewDirection();
-    const spawnX = loc.x + dir.x * 2;
-    const spawnY = loc.y + dir.y;
-    const spawnZ = loc.z + dir.z * 2;
+    const spawnPos = {
+      x: loc.x + dir.x * 2,
+      y: loc.y + dir.y,
+      z: loc.z + dir.z * 2,
+    };
     const velocity = { x: dir.x * 2, y: dir.y * 2, z: dir.z * 2 };
-    // Try summon via command (bypasses is_summonable)
+    const instanceId = player.getDynamicProperty(PLAYER_INSTANCE_KEY) as string;
     try {
-      dim.runCommand(`summon minecraft:fireball ${spawnX} ${spawnY} ${spawnZ}`);
-      system.run(() => {
-        try {
-          const fbs = dim.getEntities({
-            type: "minecraft:fireball",
-            location: { x: spawnX, y: spawnY, z: spawnZ },
-            maxDistance: 3,
-          });
-          if (fbs.length > 0) {
-            fbs[0].applyImpulse(velocity);
-            console.log("BW Fireball impulse applied");
-          }
-        } catch (e2) {
-          console.log("BW impulse error: " + e2);
-        }
-      });
-      return;
-    } catch (e) {
-      console.log("BW summon fireball failed: " + e);
-    }
-    // Fallback: flaming arrow
-    try {
-      const arrow = dim.spawnEntity("minecraft:arrow", {
-        x: spawnX,
-        y: spawnY,
-        z: spawnZ,
-      });
-      arrow.setOnFire(100);
-      const proj = arrow.getComponent("minecraft:projectile");
+      const fireball = dim.spawnEntity("minecraft:small_fireball", spawnPos);
+      fireball.setDynamicProperty("__bw_instance", instanceId);
+      fireball.setOnFire(100);
+      const proj = fireball.getComponent("minecraft:projectile");
       if (proj && proj.shoot) {
-        proj.shoot(velocity);
+        proj.shoot(velocity, { owner: player });
       } else {
-        arrow.applyImpulse(velocity);
+        fireball.applyImpulse(velocity);
       }
-      console.log("BW Used arrow fallback");
-    } catch (e3) {
-      console.log("BW All failed: " + e3);
+    } catch (e) {
+      try {
+        const arrow = dim.spawnEntity("minecraft:arrow", spawnPos);
+        arrow.setDynamicProperty("__bw_instance", instanceId);
+        arrow.setOnFire(100);
+        const proj = arrow.getComponent("minecraft:projectile");
+        if (proj && proj.shoot) {
+          proj.shoot(velocity, { owner: player });
+        } else {
+          arrow.applyImpulse(velocity);
+        }
+      } catch (e2) {
+        console.warn("BW fire charge spawn failed: " + e2);
+      }
     }
   }
 

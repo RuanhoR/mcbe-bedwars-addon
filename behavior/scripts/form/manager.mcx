@@ -2,12 +2,8 @@
   <title>
     OP Manger
   </title>
-  <button click="openMangerMenu">
-    {{ mangeOP }}
-  </button>
-  <button click="openBedwarsManager">
-    {{ bedwarsManager }}
-  </button>
+  <button click="openMangerMenu">{{ mangeOP }}</button>
+  <button click="openBedwarsManager">{{ bedwarsManager }}</button>
 </Ui>
 
 <script lang="ts">
