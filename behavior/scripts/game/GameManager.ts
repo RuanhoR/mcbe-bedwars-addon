@@ -50,7 +50,7 @@ class GameManager {
       const tick = (this._instanceTick[inst.id] || 0) + 1;
       this._instanceTick[inst.id] = tick;
       this._spawnResources(inst, tick);
-      this._protectShopBees(inst);
+      this._protectShopVillagers(inst);
       this._updateScoreboard(inst);
       this._checkWinCondition(inst);
     }
@@ -152,25 +152,25 @@ class GameManager {
     }
   }
 
-  private static _protectShopBees(inst: BedwarsInstanceData) {
+  private static _protectShopVillagers(inst: BedwarsInstanceData) {
     const dim = world.getDimension("overworld");
-    const bees = dim.getEntities({ type: "minecraft:bee" });
-    for (const bee of bees) {
-      if (bee.getDynamicProperty("__bw_instance") !== inst.id) continue;
+    const villagers = dim.getEntities({ type: "minecraft:villager_v2" });
+    for (const villager of villagers) {
+      if (villager.getDynamicProperty("__bw_instance") !== inst.id) continue;
       try {
-        bee.addEffect("slowness", 1200, {
+        villager.addEffect("slowness", 1200, {
           amplifier: 255,
           showParticles: false,
         });
-        bee.addEffect("regeneration", 1200, {
+        villager.addEffect("regeneration", 1200, {
           amplifier: 255,
           showParticles: false,
         });
-        bee.addEffect("health_boost", 1200, {
+        villager.addEffect("health_boost", 1200, {
           amplifier: 255,
           showParticles: false,
         });
-        bee.addEffect("resistance", 1200, {
+        villager.addEffect("resistance", 1200, {
           amplifier: 255,
           showParticles: false,
         });
@@ -432,7 +432,7 @@ class GameManager {
               );
             }
             yield system.waitTicks(1);
-            GameManager._spawnShopBee(p, team);
+            GameManager._spawnShopVillager(p, team);
           }
         }
       })() as unknown as Generator<void, void, void>,
@@ -441,7 +441,7 @@ class GameManager {
     world.sendMessage(t("gameStartBroadcast", { name: inst.name }));
   }
 
-  private static _spawnShopBee(
+  private static _spawnShopVillager(
     player: Player,
     team: {
       color: TeamColor;
@@ -451,30 +451,30 @@ class GameManager {
     if (!team.shopPosition) return;
     const dim = world.getDimension("overworld");
     const instanceId = player.getDynamicProperty(PLAYER_INSTANCE_KEY) as string;
-    const existingBees = dim.getEntities({ type: "minecraft:bee" });
-    for (const bee of existingBees) {
+    const existingVillagers = dim.getEntities({ type: "minecraft:villager_v2" });
+    for (const villager of existingVillagers) {
       if (
-        bee.getDynamicProperty("__bw_instance") === instanceId &&
-        bee.getDynamicProperty("__bw_team_color") === team.color
+        villager.getDynamicProperty("__bw_instance") === instanceId &&
+        villager.getDynamicProperty("__bw_team_color") === team.color
       ) {
-        try { bee.kill(); } catch {}
+        try { villager.kill(); } catch {}
       }
     }
     try {
-      const bee = dim.spawnEntity("minecraft:bee", {
+      const villager = dim.spawnEntity("minecraft:villager_v2", {
         x: team.shopPosition.x + 0.5,
         y: team.shopPosition.y + 1,
         z: team.shopPosition.z + 0.5,
       });
-      bee.nameTag = `§6商店 §e(${TEAM_COLOR_NAMES[team.color]}队)`;
-      bee.setDynamicProperty("__bw_shop", true);
-      bee.setDynamicProperty("__bw_instance", instanceId);
-      bee.setDynamicProperty("__bw_team_color", team.color);
-      bee.setDynamicProperty("__bw_no_move", true);
+      villager.nameTag = `§6商店 §e(${TEAM_COLOR_NAMES[team.color]}队)`;
+      villager.setDynamicProperty("__bw_shop", true);
+      villager.setDynamicProperty("__bw_instance", instanceId);
+      villager.setDynamicProperty("__bw_team_color", team.color);
+      villager.setDynamicProperty("__bw_no_move", true);
       system.runInterval(() => {
         try {
-          if (!bee.isValid || !bee.hasComponent("health")) return;
-          bee.teleport(
+          if (!villager.isValid || !villager.hasComponent("health")) return;
+          villager.teleport(
             {
               x: team.shopPosition!.x + 0.5,
               y: team.shopPosition!.y + 1,
@@ -485,7 +485,7 @@ class GameManager {
         } catch {}
       }, 10);
     } catch (e) {
-      console.warn("Failed to spawn shop bee: " + e);
+      console.warn("Failed to spawn shop villager: " + e);
     }
   }
 
@@ -625,10 +625,10 @@ class GameManager {
     system.runJob(
       (function* () {
         const dim = world.getDimension("overworld");
-        const bees = dim.getEntities({ type: "minecraft:bee" });
-        for (const bee of bees) {
-          if (bee.getDynamicProperty("__bw_instance") === instanceId) {
-            try { bee.kill(); } catch {}
+        const villagers = dim.getEntities({ type: "minecraft:villager_v2" });
+        for (const villager of villagers) {
+          if (villager.getDynamicProperty("__bw_instance") === instanceId) {
+            try { villager.kill(); } catch {}
           }
         }
         const fireballs = dim.getEntities({ type: "minecraft:small_fireball" });

@@ -89,7 +89,7 @@ export function onUseItem(event: ItemUseAfterEvent) {
 
 export function onEntityHurt(event: EntityHurtAfterEvent) {
   const hurtEntity = event.hurtEntity;
-  if (hurtEntity && hurtEntity.typeId === "minecraft:bee" && hurtEntity.getDynamicProperty("__bw_shop")) {
+  if (hurtEntity && hurtEntity.typeId === "minecraft:villager_v2" && hurtEntity.getDynamicProperty("__bw_shop")) {
     const src = event.damageSource;
     if (src && src.damagingEntity) {
       const attacker = src.damagingEntity;

@@ -57,6 +57,7 @@ export type I18nKeyList =
   | "spectatorMode"
   | "shopTitle"
   | "shopWool"
+  | "shopWoodSword"
   | "shopBridgeEgg"
   | "shopStoneSword"
   | "shopIronSword"

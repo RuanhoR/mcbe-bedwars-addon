@@ -174,6 +174,13 @@ export const SHOP_ITEMS: ShopItemDef[] = [
     result: { itemId: "minecraft:white_wool", count: 16 },
   },
   {
+    id: "wood_sword",
+    nameKey: "shopWoodSword",
+    cost: [{ itemId: "minecraft:iron_ingot", count: 4 }],
+    result: { itemId: "minecraft:wooden_sword", count: 1 },
+    enchantments: [{ id: "sharpness", level: 1 }],
+  },
+  {
     id: "bridge_egg",
     nameKey: "shopBridgeEgg",
     cost: [{ itemId: "minecraft:iron_ingot", count: 16 }],
