@@ -727,7 +727,8 @@ class GameManager {
       fireball.setOnFire(100);
       const proj = fireball.getComponent("minecraft:projectile");
       if (proj && proj.shoot) {
-        proj.shoot(velocity, { owner: player });
+        proj.owner = player;
+        proj.shoot(velocity);
       } else {
         fireball.applyImpulse(velocity);
       }
@@ -738,7 +739,8 @@ class GameManager {
         arrow.setOnFire(100);
         const proj = arrow.getComponent("minecraft:projectile");
         if (proj && proj.shoot) {
-          proj.shoot(velocity, { owner: player });
+          proj.owner = player;
+          proj.shoot(velocity);
         } else {
           arrow.applyImpulse(velocity);
         }
