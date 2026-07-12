@@ -5,7 +5,6 @@ import path from "node:path";
 export default defineConfig({
   description: "Bedwar.mcaddon",
   mcVersion: "1.26.31",
-  version: "0.0.1",
   displayName: "起床战争.mcaddon",
   minify: "oxc",
   outGameOnDev: true,
