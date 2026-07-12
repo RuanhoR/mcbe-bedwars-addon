@@ -69,7 +69,7 @@ export function onPlayerBreakBlock(event: PlayerBreakBlockAfterEvent) {
       }
     }
   });
-}
+};
 /**
  * Handle item use: menu item (OP UI), fire charge (custom projectile), bridge egg (block placement)
  * 处理物品使用：菜单物品（OP界面）、烈焰弹（自定义射弹）、搭桥蛋（放置方块）

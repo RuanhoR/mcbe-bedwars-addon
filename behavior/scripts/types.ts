@@ -15,6 +15,7 @@ export type I18nKeyList =
   | "addOpSuccess"
   | "bedwarsManager"
   | "createInstance"
+  | "test"
   | "deleteInstance"
   | "instanceList"
   | "instanceName"

@@ -3,9 +3,8 @@ import fs from "node:fs/promises"
 import { defineConfig } from "mbler";
 import path from "node:path";
 export default defineConfig({
-  description: "起床战争 mcaddon",
+  description: "Bedwar.mcaddon",
   mcVersion: "1.26.31",
-  name: "@ruanhor/bed-wars",
   version: "0.0.1",
   displayName: "起床战争.mcaddon",
   minify: "oxc",
