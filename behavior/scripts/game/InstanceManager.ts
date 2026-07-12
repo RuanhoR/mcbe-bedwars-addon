@@ -186,6 +186,12 @@ class InstanceManager {
     }
   }
 
+  /**
+   * Find armor stands within a structure area and return their names/positions, then remove them.
+   * Used to locate bed, shop, iron, gold, diamond positions during map loading.
+   * 查找结构区域内的盔甲架并返回其名称/位置，然后移除它们。
+   * 用于在地图加载时定位床、商店、铁、金、钻石的位置。
+   */
   static findArmorStands(dimension: Dimension, ox: number, oy: number, oz: number, size: [number, number, number]): { name: string; position: { x: number; y: number; z: number } }[] {
     const bounds = getStructureBounds(ox, oy, oz, size);
     const results: { name: string; position: { x: number; y: number; z: number } }[] = [];
@@ -276,6 +282,12 @@ class InstanceManager {
     }
   }
 
+  /**
+   * Resolve all entity positions (iron, gold, diamond, bed, shop) from config data.
+   * Called during game start after map structures are placed.
+   * 从配置数据解析所有实体位置（铁、金、钻石、床、商店）。
+   * 在游戏开始放置地图结构后调用。
+   */
   static resolveAllPositions(dim: Dimension, instanceId: string) {
     const inst = this.getInstance(instanceId);
     if (!inst) return;
@@ -334,6 +346,10 @@ class InstanceManager {
     }
   }
 
+  /**
+   * Process center island entities: assign iron, gold, diamond positions to teams
+   * 处理中岛实体：将铁、金、钻石位置分配给队伍
+   */
   static processCenterEntities(inst: BedwarsInstanceData, entities: { name: string; position: { x: number; y: number; z: number } }[]) {
     for (const e of entities) {
       switch (e.name) {
@@ -356,6 +372,10 @@ class InstanceManager {
     }
   }
 
+  /**
+   * Process team island entities: set bed, shop, iron, gold positions for a specific team
+   * 处理队伍岛实体：为特定队伍设置床、商店、铁、金位置
+   */
   static processTeamEntities(inst: BedwarsInstanceData, color: TeamColor, entities: { name: string; position: { x: number; y: number; z: number } }[]) {
     const team = inst.teams.find(t => t.color === color);
     if (!team) return;

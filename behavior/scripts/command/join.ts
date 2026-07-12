@@ -31,7 +31,7 @@ command.action((origin, instanceName) => {
   const inst = all.find(i => i.name === instanceName);
   if (!inst) {
     return {
-      message: "§cInstance not found: " + instanceName + " (available: " + all.map(i => i.name).join(", ") + ")",
+      message: t("instanceNotFoundByName", { name: instanceName, available: all.map(i => i.name).join(", ") }),
       status: CustomCommandStatus.Failure,
     };
   }
@@ -47,7 +47,7 @@ command.action((origin, instanceName) => {
   const ok = GameManager.joinGame(player, inst.id);
   if (!ok) {
     return {
-      message: "§cFailed to join game",
+      message: t("failedToJoin"),
       status: CustomCommandStatus.Failure,
     };
   }

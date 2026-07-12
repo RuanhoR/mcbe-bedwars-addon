@@ -1,4 +1,5 @@
-import { TeamColor, ShopItemDef } from "../types";
+import { TeamColor, ShopItemDef, I18nKeyList } from "../types";
+import { t } from "../i18n/locals";
 
 export const MAP_Y = 100;
 export const INIT_ISLAND_Y = 210;
@@ -266,10 +267,16 @@ export const TEAM_WOOL_MAP: Record<TeamColor, string> = {
   green: "minecraft:green_wool",
 };
 
-export const TEAM_COLOR_NAMES: Record<TeamColor, string> = {
-  red: "§c红",
-  blue: "§9蓝",
-  yellow: "§e黄",
-  white: "§f白",
-  green: "§a绿",
-};
+/**
+ * Get the display name of a team color with color code, translated to current language.
+ */
+export function getTeamColorName(color: TeamColor): string {
+  const colorCode: Record<TeamColor, string> = {
+    red: "§c",
+    blue: "§9",
+    yellow: "§e",
+    white: "§f",
+    green: "§a",
+  };
+  return colorCode[color] + t(("color" + color.charAt(0).toUpperCase() + color.slice(1)) as I18nKeyList);
+}

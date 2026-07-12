@@ -1,5 +1,6 @@
 import { Command } from "@mbler/mcx";
 import { CustomCommandStatus } from "@minecraft/server";
+import { t } from "../i18n/locals";
 import GameManager from "../game/GameManager";
 
 const command = new Command("bedwars:hub");
@@ -17,7 +18,7 @@ command.action((origin) => {
   const player = origin.sourceEntity! as any;
   GameManager.sendToHub(player);
   return {
-    message: "§aTeleported to hub",
+    message: t("teleportedToHub"),
     status: CustomCommandStatus.Success,
   };
 });

@@ -9,6 +9,7 @@ export default defineConfig({
   version: "0.0.1",
   displayName: "起床战争.mcaddon",
   minify: "oxc",
+  outGameOnDev: true,
   script: { main: "index.ts", ui: true, lang: "mcx", UseBeta: false },
   build: {
     bundle: true, cache: "file",

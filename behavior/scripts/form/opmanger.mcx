@@ -12,7 +12,7 @@ import { t } from "../i18n/locals";
 export function addOp(res: ActionFormResponse, player: Player) {
   const form = new ModalFormData()
     .title(t("addOp"))
-    .textField("Player name", "Enter the player name to add as OP");
+    .textField(t("player"), t("player"));
   form.show(player).then((response) => {
     if (response.canceled) return;
     const name = (response.formValues as string[])?.[0]?.trim();
@@ -27,7 +27,7 @@ export function addOp(res: ActionFormResponse, player: Player) {
         name: player.name
       }));
     } else {
-      player.sendMessage(`§cPlayer "${name}" not found or not online`);
+      player.sendMessage(t("playerNotFound"));
     }
   });
 }
@@ -35,12 +35,12 @@ export function addOp(res: ActionFormResponse, player: Player) {
 export function removeOp(res: ActionFormResponse, player: Player) {
   const ops = getOnlineOps();
   if (ops.length === 0) {
-    player.sendMessage("§cNo online operators to remove");
+    player.sendMessage(t("noOpsToRemove"));
     return;
   }
   const form = new ActionFormData()
     .title(t("removeOp"))
-    .body("Select an operator to remove:");
+    .body(t("selectOpToRemove"));
   for (const op of ops) {
     form.button(`§c${op.name}`);
   }

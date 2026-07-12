@@ -13,28 +13,40 @@ import InstanceManager from "./InstanceManager";
 import ShopManager from "./ShopManager";
 import {
   TEAM_WOOL_MAP,
-  TEAM_COLOR_NAMES,
+  getTeamColorName,
   MAP_Y,
   getMapLayout,
   STRUCTURES,
 } from "./config";
 
+// Player dynamic property keys for game state persistence
 const PLAYER_TEAM_KEY = "__bw_team";
 const PLAYER_INSTANCE_KEY = "__bw_instance";
 const PLAYER_IS_ALIVE_KEY = "__bw_alive";
 const PLAYER_IS_SPECTATOR_KEY = "__bw_spectator";
 const PLAYER_RESPAWN_KEY = "__bw_respawning";
 
+// Resource spawn intervals (in ticks)
 const IRON_INTERVAL = 8;
 const GOLD_INTERVAL = 30;
 const DIAMOND_INTERVAL = 80;
 const SCOREBOARD_OBJ = "bedwarsscore";
 
+/**
+ * Core game manager - handles game lifecycle, tick loop, win conditions, respawn, and cleanup
+ * 核心游戏管理器 - 处理游戏生命周期、tick循环、胜利条件、重生和清理
+ */
 class GameManager {
   private static _gameLoopId: number | null = null;
+  // Set of instance IDs that are currently in a running game
   private static _runningGames: Set<string> = new Set();
+  // Per-instance tick counter for resource spawn timing
   private static _instanceTick: Record<string, number> = {};
 
+  /**
+   * Initialize the game loop (runs every 10 ticks)
+   * 初始化游戏循环（每10tick运行一次）
+   */
   static init() {
     if (this._gameLoopId !== null) return;
     system.runInterval(() => {
@@ -42,6 +54,10 @@ class GameManager {
     }, 10);
   }
 
+  /**
+   * Main tick loop - processes all active game instances
+   * 主tick循环 - 处理所有活跃的游戏实例
+   */
   private static _tick() {
     const instances = InstanceManager.getInstances().filter(
       (i) => i.status === "playing",
@@ -54,6 +70,7 @@ class GameManager {
       this._updateScoreboard(inst);
       this._checkWinCondition(inst);
     }
+    // Clean up scoreboard when no games are running
     if (instances.length === 0 && this._scoreboardActive) {
       this._removeScoreboard();
     }
@@ -114,7 +131,7 @@ class GameManager {
       );
       let idx = 98;
       for (const team of inst.teams) {
-        const colorName = TEAM_COLOR_NAMES[team.color];
+        const colorName = getTeamColorName(team.color);
         const alive = team.players.filter((id) => {
           const p = world.getEntity(id);
           return p && !p.getDynamicProperty(PLAYER_IS_SPECTATOR_KEY);
@@ -128,7 +145,12 @@ class GameManager {
     } catch {}
   }
 
+  /**
+   * Check win condition: if only 0 or 1 team has alive (non-spectator) players, end the game
+   * 检查胜利条件：如果只有0或1个队伍还有存活（非旁观模式）玩家，则结束游戏
+   */
   private static _checkWinCondition(inst: BedwarsInstanceData) {
+    // Find teams that still have alive (non-spectator) players
     const aliveTeams: BedwarsTeamData[] = [];
     for (const team of inst.teams) {
       if (team.players.length === 0) continue;
@@ -140,14 +162,19 @@ class GameManager {
         aliveTeams.push(team);
       }
     }
-    if (aliveTeams.length <= 1 && aliveTeams.length > 0) {
+    // Only one team alive -> that team wins
+    if (aliveTeams.length === 1) {
       const winner = aliveTeams[0];
       world.sendMessage(
         t("gameWin", {
-          color: TEAM_COLOR_NAMES[winner.color],
+          color: getTeamColorName(winner.color),
           name: inst.name,
         }),
       );
+      this.endGame(inst.id);
+    }
+    // No teams alive (draw / all eliminated) -> end game with no winner
+    if (aliveTeams.length === 0) {
       this.endGame(inst.id);
     }
   }
@@ -466,7 +493,7 @@ class GameManager {
         y: team.shopPosition.y + 1,
         z: team.shopPosition.z + 0.5,
       });
-      villager.nameTag = `§6商店 §e(${TEAM_COLOR_NAMES[team.color]}队)`;
+      villager.nameTag = t("shopVillagerName", { color: getTeamColorName(team.color) });
       villager.setDynamicProperty("__bw_shop", true);
       villager.setDynamicProperty("__bw_instance", instanceId);
       villager.setDynamicProperty("__bw_team_color", team.color);
@@ -489,6 +516,14 @@ class GameManager {
     }
   }
 
+  /**
+   * Handle player respawn after death
+   * - If bed is alive: respawn at bed after countdown
+   * - If bed is destroyed: set to spectator mode
+   * 处理玩家死亡后重生
+   * - 如果床存活：倒计时后回到床的位置
+   * - 如果床被摧毁：设为旁观模式
+   */
   static handlePlayerRespawn(player: Player) {
     const instanceId = player.getDynamicProperty(PLAYER_INSTANCE_KEY) as string;
     if (!instanceId) return;
@@ -499,6 +534,7 @@ class GameManager {
     if (!team) return;
 
     if (team.bedAlive) {
+      // Bed is alive -> respawn player at team island with countdown
       player.setDynamicProperty(PLAYER_RESPAWN_KEY, true);
       const dim = world.getDimension("overworld");
 
@@ -506,6 +542,7 @@ class GameManager {
         (function* () {
           try {
             if (!player.isValid) return;
+            // Teleport to init island during countdown
             player.teleport(
               { x: inst.initIslandX, y: MAP_Y + 5, z: inst.initIslandZ },
               { dimension: dim },
@@ -517,6 +554,7 @@ class GameManager {
 
           yield system.waitTicks(10);
 
+          // 3-2-1 countdown
           for (let i = 3; i >= 1; i--) {
             try {
               if (!player.isValid) return;
@@ -539,6 +577,7 @@ class GameManager {
               showParticles: false,
             });
 
+            // Give starter items: team wool + wooden sword
             const inv = player.getComponent("inventory")?.container;
             if (inv) {
               inv.addItem(
@@ -550,6 +589,7 @@ class GameManager {
               inv.addItem(new ItemStack("minecraft:wooden_sword", 1));
             }
 
+            // Teleport to team bed
             if (team.bedPosition) {
               player.teleport(
                 {
@@ -569,6 +609,7 @@ class GameManager {
         })() as unknown as Generator<void, void, void>,
       );
     } else {
+      // Bed is destroyed -> set player to spectator mode
       player.setDynamicProperty(PLAYER_IS_SPECTATOR_KEY, true);
       const dim = world.getDimension("overworld");
       system.run(() => {
@@ -589,14 +630,30 @@ class GameManager {
         }
         player.setGameMode(GameMode.Spectator);
       });
-      player.sendMessage(t("bedDestroyedMsg"));
+      player.sendMessage(t("youAreOut"));
+      // Broadcast team elimination if all team members are now spectators
+      const allDead = team.players.every((pid) => {
+        const p = world.getEntity(pid);
+        return p && p.getDynamicProperty(PLAYER_IS_SPECTATOR_KEY);
+      });
+      if (allDead) {
+        world.sendMessage(t("teamEliminated", { color: getTeamColorName(team.color) }));
+      }
     }
   }
 
+  /**
+   * Mark player as dead (triggered by entityDie event)
+   * 标记玩家死亡（由entityDie事件触发）
+   */
   static handlePlayerDeath(player: Player) {
     player.setDynamicProperty(PLAYER_IS_ALIVE_KEY, false);
   }
 
+  /**
+   * End a game instance: clean up players, entities, and map, then teleport everyone back to spawn island
+   * 结束游戏实例：清理玩家、实体和地图，然后将所有人传送回初始岛
+   */
   static endGame(instanceId: string) {
     const inst = InstanceManager.getInstance(instanceId);
     if (!inst) return;
@@ -604,6 +661,7 @@ class GameManager {
     InstanceManager.setInstanceStatus(instanceId, "idle");
     this._removeScoreboard();
 
+    // Collect all players, clear their inventory and dynamic properties
     const playerIds: string[] = [];
     for (const team of inst.teams) {
       for (const playerId of team.players) {
@@ -622,21 +680,25 @@ class GameManager {
       team.players = [];
     }
 
+    // Async cleanup: remove villagers, fireballs, teleport players, clear map
     system.runJob(
       (function* () {
         const dim = world.getDimension("overworld");
+        // Kill shop villagers belonging to this instance
         const villagers = dim.getEntities({ type: "minecraft:villager_v2" });
         for (const villager of villagers) {
           if (villager.getDynamicProperty("__bw_instance") === instanceId) {
             try { villager.kill(); } catch {}
           }
         }
+        // Kill fireballs belonging to this instance
         const fireballs = dim.getEntities({ type: "minecraft:small_fireball" });
         for (const fb of fireballs) {
           if (fb.getDynamicProperty("__bw_instance") === instanceId) {
             try { fb.kill(); } catch {}
           }
         }
+        // Teleport all players back to spawn island, set adventure mode
         for (const playerId of playerIds) {
           const player = world.getEntity(playerId) as Player;
           if (!player) continue;
@@ -652,6 +714,7 @@ class GameManager {
           player.sendMessage(t("gameEnded"));
         }
         yield;
+        // Clear the map structures
         InstanceManager.clearInstanceMap(dim, instanceId);
       })(),
     );

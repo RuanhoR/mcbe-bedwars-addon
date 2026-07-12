@@ -11,7 +11,7 @@ import { ActionFormData, ModalFormData, MessageFormData } from "@minecraft/serve
 import { t } from "../i18n/locals";
 import InstanceManager from "../game/InstanceManager";
 import GameManager from "../game/GameManager";
-import { TEAM_COLOR_NAMES, MAP_Y } from "../game/config";
+import { getTeamColorName, MAP_Y } from "../game/config";
 import { I18nLanguageKeyArr, WorldDynamicPropertyKeys } from "../types";
 export function onCreate(res: unknown, player: Player) {
   if (!InstanceManager.isInitIslandLoaded()) {
@@ -25,7 +25,7 @@ export function onCreate(res: unknown, player: Player) {
       const ix = parseInt(vals[0]);
       const iz = parseInt(vals[1]);
       if (isNaN(ix) || isNaN(iz)) {
-        player.sendMessage("§cInvalid coordinates");
+        player.sendMessage(t("invalidCoordinates"));
         return;
       }
       player.sendMessage(t("loadingInitIsland"));
@@ -59,7 +59,7 @@ function showCreateForm(player: Player) {
     const z = parseInt(vals[2]);
     const modeIdx = vals[3];
     if (!name || isNaN(x) || isNaN(z)) {
-      player.sendMessage("§cInvalid input");
+      player.sendMessage(t("invalidInput"));
       return;
     }
     const modes = [
@@ -123,7 +123,7 @@ export function onList(res: unknown, player: Player) {
   }
   const form = new ActionFormData()
     .title(t("instanceList"))
-    .body("§7点击查看实例详情和控制");
+      .body(t("clickForDetails"));
   for (const inst of instances) {
     const statusText = inst.status === "idle" ? "§7" + t("statusIdle") : inst.status === "waiting" ? "§e" + t("statusWaiting") : "§a" + t("statusPlaying");
     const playerCount = inst.teams.reduce((s, t) => s + t.players.length, 0);
@@ -141,19 +141,19 @@ function showInstanceDetail(player: Player, instanceId: string) {
   if (!inst) return;
 
   const statusText = inst.status === "idle" ? "§7" + t("statusIdle") : inst.status === "waiting" ? "§e" + t("statusWaiting") : "§a" + t("statusPlaying");
-  let body = `§6名称: §f${inst.name}\n`;
-  body += `§6状态: ${statusText}\n`;
-  body += `§6坐标: §f${inst.x}, ${inst.z}\n`;
-  body += `§6队伍: §f${inst.teamCount} 队, 每队 ${inst.playersPerTeam} 人\n\n`;
-  body += `§6队伍详情:\n`;
+  let body = `${t("detailTeamInfo", { label: t("detailName"), value: inst.name })}\n`;
+  body += `${t("detailTeamInfo", { label: t("detailStatus"), value: statusText })}\n`;
+  body += `${t("detailTeamInfo", { label: t("detailCoord"), value: `${inst.x}, ${inst.z}` })}\n`;
+  body += `${t("detailTeamInfo", { label: t("detailTeams"), value: `${inst.teamCount} ${t("detailTeams")}, ${inst.playersPerTeam} ${t("player")}` })}\n\n`;
+  body += `§6${t("detailTeamInfo", { label: "", value: "" })}\n`;
   for (const team of inst.teams) {
-    const colorName = TEAM_COLOR_NAMES[team.color];
+    const colorName = getTeamColorName(team.color);
     const players = team.players.map(id => {
       const p = world.getEntity(id) as Player | undefined;
-      return p ? p.name : "离线";
-    }).join(", ") || "§7无";
+      return p ? p.name : t("offlinePlayer");
+    }).join(", ") || `§7${t("detailNone")}`;
     const bedStatus = team.bedAlive ? t("bedAliveLabel") : t("bedDestroyedLabel");
-    body += `  ${colorName}: §f${players} §7| 床: ${bedStatus}\n`;
+    body += `  ${colorName}: §f${players} §7| ${t("detailBed")}: ${bedStatus}\n`;
   }
 
   const form = new ActionFormData()
@@ -166,7 +166,7 @@ function showInstanceDetail(player: Player, instanceId: string) {
   if (inst.status === "playing") {
     form.button(`§c${t("endGame")}`);
   }
-  form.button("§7返回");
+  form.button(`§7${t("detailBack")}`);
 
   form.show(player).then((response) => {
     if (response.canceled || response.selection === undefined) return;
@@ -184,13 +184,13 @@ export function onSetLanguage(res: unknown, player: Player) {
     .title(t("setLanguage"))
     .body(t("restartHint"));
   for (const lang of I18nLanguageKeyArr) {
-    form.button(lang === "zh" ? "中文" : "English");
+    form.button(lang === "zh" ? t("langChinese") : t("langEnglish"));
   }
   form.show(player).then((response) => {
     if (response.canceled || response.selection === undefined) return;
     const lang = I18nLanguageKeyArr[response.selection];
     world.setDynamicProperty(WorldDynamicPropertyKeys.GolbalLanguage, lang);
-    player.sendMessage(t("languageSet", { lang: lang === "zh" ? "中文" : "English" }));
+    player.sendMessage(t("languageSet", { lang: lang === "zh" ? t("langChinese") : t("langEnglish") }));
     player.sendMessage(t("restartHint"));
   });
 

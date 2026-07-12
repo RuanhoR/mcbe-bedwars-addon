@@ -7,14 +7,18 @@ import {
 } from "@minecraft/server";
 import { ActionFormData } from "@minecraft/server-ui";
 import { TeamColor, ShopItemDef, ShopCost } from "../types";
-import { SHOP_ITEMS, TEAM_WOOL_MAP, TEAM_COLOR_NAMES } from "./config";
+import { SHOP_ITEMS, TEAM_WOOL_MAP, getTeamColorName } from "./config";
 import { t } from "../i18n/locals";
 
 class ShopManager {
+  /**
+   * Show the shop UI to a player with all available items
+   * 向玩家显示所有可用物品的商店界面
+   */
   static showShop(player: Player, teamColor: TeamColor) {
     const form = new ActionFormData()
       .title(t("shopTitle"))
-      .body(`§7欢迎来到商店！\n§7你的队伍: ${TEAM_COLOR_NAMES[teamColor]}`);
+      .body(`§7${t("shopTitle")}\n§7${t("teamAssigned", { color: getTeamColorName(teamColor) })}`);
 
     for (const item of SHOP_ITEMS) {
       const costStr = this._formatCost(item);
@@ -22,7 +26,7 @@ class ShopManager {
       form.button(`${name}\n§7${costStr}`);
     }
 
-    form.button("§c退出");
+    form.button("§c" + t("cancel"));
 
     form.show(player).then((res) => {
       if (res.canceled) return;
@@ -32,17 +36,26 @@ class ShopManager {
     });
   }
 
+  /**
+   * Format item cost for display (e.g. "4 iron ingot + 2 gold ingot")
+   * 格式化物品价格显示
+   */
   private static _formatCost(item: ShopItemDef): string {
     return item.cost
       .map((c) => `§e${c.count} ${c.itemId.split(":")[1].replace("_", " ")}`)
       .join(" + ");
   }
 
+  /**
+   * Process a purchase: check funds, deduct cost, give item
+   * 处理购买：检查资金，扣除费用，给予物品
+   */
   private static _processPurchase(
     player: Player,
     teamColor: TeamColor,
     itemDef: ShopItemDef,
   ) {
+    // Check if player has enough materials
     for (const cost of itemDef.cost) {
       const has = this._countItem(player, cost.itemId) >= cost.count;
       if (!has) {
@@ -55,10 +68,12 @@ class ShopManager {
         return;
       }
     }
+    // Deduct materials
     for (const cost of itemDef.cost) {
       this._removeItems(player, cost.itemId, cost.count);
     }
 
+    // Give item (armor sets are handled differently)
     if (itemDef.armor) {
       this._giveArmor(player, itemDef);
     } else {
