@@ -1,5 +1,5 @@
 <Ui>
-  <title>Map Manger</title>
+  <title>Map Manager</title>
   <button click="onCreate">{{ createInstance }}</button>
   <button click="onDelete">{{ deleteInstance }}</button>
   <button click="onList">{{ instanceList }}</button>
@@ -13,7 +13,6 @@ import InstanceManager from "../game/InstanceManager";
 import GameManager from "../game/GameManager";
 import { TEAM_COLOR_NAMES, MAP_Y } from "../game/config";
 import { I18nLanguageKeyArr, WorldDynamicPropertyKeys } from "../types";
-
 export function onCreate(res: unknown, player: Player) {
   if (!InstanceManager.isInitIslandLoaded()) {
     const form = new ModalFormData()
@@ -194,5 +193,7 @@ export function onSetLanguage(res: unknown, player: Player) {
     player.sendMessage(t("languageSet", { lang: lang === "zh" ? "中文" : "English" }));
     player.sendMessage(t("restartHint"));
   });
+
 }
+
 </script>

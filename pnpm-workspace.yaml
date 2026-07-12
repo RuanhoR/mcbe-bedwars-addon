@@ -1,10 +1,2 @@
-minimumReleaseAgeExclude:
-  - "@mbler/mcx-component@0.0.0-alpha.2"
-  - "@mbler/mcx-core@0.1.2-rc.9"
-  - "@mbler/mcx-server@0.1.2-rc.1"
-  - "@mbler/mcx-types@0.0.4-rc.2"
-  - "@mbler/mcx@0.0.4-rc.1"
-  - "@mbler/mcx@0.0.4-rc.4"
-  - mbler@0.2.8-rc.8
 minimumReleaseAgeStrict: false
 minimumReleaseAge: 0

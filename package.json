@@ -22,7 +22,7 @@
     "@minecraft/server-ui": "2.2.0-beta.1.26.31-stable",
     "@types/node": "^26.0.1",
     "cross-env": "^10.1.0",
-    "mbler": "0.2.8-rc.13",
+    "mbler": "0.2.9-rc.3",
     "prismarine-nbt": "^2.8.0"
   }
 }
