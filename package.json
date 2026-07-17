@@ -14,8 +14,7 @@
   "type": "module",
   "dependencies": {
     "@mbler/mcx": "0.0.4-rc.14",
-    "@mbler/mcx-types": "0.0.4-rc.5",
-    "sapi-game": "0.0.2"
+     "@mbler/mcx-types": "0.0.4-rc.5"
   },
   "devDependencies": {
     "@minecraft/server": "2.9.0-beta.1.26.31-stable",
