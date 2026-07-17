@@ -1,14 +1,20 @@
-<Ui>
-  <title>Map Manager</title>
+<Form setup>
+  <title>{{ mapManagerTitle }}</title>
   <button click="onCreate">{{ createInstance }}</button>
   <button click="onDelete">{{ deleteInstance }}</button>
   <button click="onList">{{ instanceList }}</button>
   <button click="onSetLanguage">{{ setLanguage }}</button>
-</Ui>
+</Form>
 <script lang="ts">
 import { Player, world, system } from "@minecraft/server";
 import { ActionFormData, ModalFormData, MessageFormData } from "@minecraft/server-ui";
 import { t } from "../i18n/locals";
+
+const mapManagerTitle = t("mapManagerTitle");
+const createInstance = t("createInstance");
+const deleteInstance = t("deleteInstance");
+const instanceList = t("instanceList");
+const setLanguage = t("setLanguage");
 import InstanceManager from "../game/InstanceManager";
 import GameManager from "../game/GameManager";
 import { getTeamColorName, MAP_Y } from "../game/config";
@@ -123,7 +129,7 @@ export function onList(res: unknown, player: Player) {
   }
   const form = new ActionFormData()
     .title(t("instanceList"))
-      .body(t("clickForDetails"));
+    .body(t("clickForDetails"));
   for (const inst of instances) {
     const statusText = inst.status === "idle" ? "§7" + t("statusIdle") : inst.status === "waiting" ? "§e" + t("statusWaiting") : "§a" + t("statusPlaying");
     const playerCount = inst.teams.reduce((s, t) => s + t.players.length, 0);

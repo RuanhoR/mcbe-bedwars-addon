@@ -5,6 +5,7 @@ import {
   GameMode,
   Entity,
   ItemStack,
+  EquipmentSlot,
 } from "@minecraft/server";
 import type { I18nKeyList } from "../types";
 import { t } from "../i18n/locals";
@@ -85,13 +86,17 @@ class GameManager {
       dim.runCommand(
         `scoreboard objectives add ${SCOREBOARD_OBJ} dummy Bedwars`,
       );
-    } catch {}
+    } catch (e: any) {
+      console.error(`[BW] scoreboard add failed: ${e?.message ?? e}`);
+    }
     try {
       const dim = world.getDimension("overworld");
       dim.runCommand(
         `scoreboard objectives setdisplay sidebar ${SCOREBOARD_OBJ}`,
       );
-    } catch {}
+    } catch (e: any) {
+      console.error(`[BW] scoreboard display failed: ${e?.message ?? e}`);
+    }
     this._scoreboardActive = true;
   }
 
@@ -99,7 +104,9 @@ class GameManager {
     try {
       const dim = world.getDimension("overworld");
       dim.runCommand(`scoreboard objectives remove ${SCOREBOARD_OBJ}`);
-    } catch {}
+    } catch (e: any) {
+      console.error(`[BW] scoreboard remove failed: ${e?.message ?? e}`);
+    }
     this._scoreboardActive = false;
   }
 
@@ -107,7 +114,9 @@ class GameManager {
     try {
       const dim = world.getDimension("overworld");
       dim.runCommand(`scoreboard players reset @a ${SCOREBOARD_OBJ}`);
-    } catch {}
+    } catch (e: any) {
+      console.error(`[BW] scoreboard reset failed: ${e?.message ?? e}`);
+    }
   }
 
   private static _updateScoreboard(inst: BedwarsInstanceData) {
@@ -116,7 +125,9 @@ class GameManager {
     try {
       try {
         dim.runCommand(`scoreboard objectives remove ${SCOREBOARD_OBJ}`);
-      } catch {}
+      } catch (e: any) {
+        console.error(`[BW] scoreboard remove in update failed: ${e?.message ?? e}`);
+      }
       dim.runCommand(
         `scoreboard objectives add ${SCOREBOARD_OBJ} dummy Bedwars`,
       );
@@ -142,7 +153,9 @@ class GameManager {
         );
         idx--;
       }
-    } catch {}
+    } catch (e: any) {
+      console.error(`[BW] updateScoreboard failed: ${e?.message ?? e}`);
+    }
   }
 
   /**
@@ -201,7 +214,9 @@ class GameManager {
           amplifier: 255,
           showParticles: false,
         });
-      } catch {}
+      } catch (e: any) {
+        console.error(`[BW] protect villager effect failed: ${e?.message ?? e}`);
+      }
     }
   }
 
@@ -403,7 +418,9 @@ class GameManager {
               { x: inst.initIslandX, y: MAP_Y + 5, z: inst.initIslandZ },
               { dimension: dim },
             );
-          } catch {}
+          } catch (e: any) {
+            console.error(`[BW] scout teleport failed: ${e?.message ?? e}`);
+          }
         }
 
         // Teleport all players to init island, clear inventory
@@ -414,6 +431,7 @@ class GameManager {
             const inv = p.getComponent("inventory")?.container;
             if (inv)
               for (let i = 0; i < inv.size; i++) inv.setItem(i, undefined);
+            GameManager._clearEquipment(p);
             p.addEffect("regeneration", 100, {
               amplifier: 255,
               showParticles: false,
@@ -484,7 +502,9 @@ class GameManager {
         villager.getDynamicProperty("__bw_instance") === instanceId &&
         villager.getDynamicProperty("__bw_team_color") === team.color
       ) {
-        try { villager.kill(); } catch {}
+        try { villager.kill(); } catch (e: any) {
+          console.error(`[BW] kill old shop villager failed: ${e?.message ?? e}`);
+        }
       }
     }
     try {
@@ -509,11 +529,13 @@ class GameManager {
             },
             { dimension: dim },
           );
-        } catch {}
-      }, 10);
-    } catch (e) {
-      console.warn("Failed to spawn shop villager: " + e);
-    }
+          } catch (e: any) {
+            console.error(`[BW] shop villager teleport failed: ${e?.message ?? e}`);
+          }
+        }, 10);
+      } catch (e: any) {
+        console.warn("Failed to spawn shop villager: " + e);
+      }
   }
 
   /**
@@ -577,7 +599,8 @@ class GameManager {
               showParticles: false,
             });
 
-            // Give starter items: team wool + wooden sword
+            // Clear any leftover equipment, then give starter items
+            GameManager._clearEquipment(player);
             const inv = player.getComponent("inventory")?.container;
             if (inv) {
               inv.addItem(
@@ -605,7 +628,9 @@ class GameManager {
                 { dimension: dim },
               );
             }
-          } catch {}
+          } catch (e: any) {
+            console.error(`[BW] respawn teleport failed: ${e?.message ?? e}`);
+          }
         })() as unknown as Generator<void, void, void>,
       );
     } else {
@@ -671,6 +696,7 @@ class GameManager {
         const inv3 = player.getComponent("inventory")?.container;
         if (inv3)
           for (let i = 0; i < inv3.size; i++) inv3.setItem(i, undefined);
+        GameManager._clearEquipment(player);
         player.setDynamicProperty(PLAYER_TEAM_KEY, undefined);
         player.setDynamicProperty(PLAYER_INSTANCE_KEY, undefined);
         player.setDynamicProperty(PLAYER_IS_ALIVE_KEY, undefined);
@@ -688,14 +714,18 @@ class GameManager {
         const villagers = dim.getEntities({ type: "minecraft:villager_v2" });
         for (const villager of villagers) {
           if (villager.getDynamicProperty("__bw_instance") === instanceId) {
-            try { villager.kill(); } catch {}
+            try { villager.kill(); } catch (e: any) {
+              console.error(`[BW] endGame kill villager failed: ${e?.message ?? e}`);
+            }
           }
         }
         // Kill fireballs belonging to this instance
         const fireballs = dim.getEntities({ type: "minecraft:small_fireball" });
         for (const fb of fireballs) {
           if (fb.getDynamicProperty("__bw_instance") === instanceId) {
-            try { fb.kill(); } catch {}
+            try { fb.kill(); } catch (e: any) {
+              console.error(`[BW] endGame kill fireball failed: ${e?.message ?? e}`);
+            }
           }
         }
         // Teleport all players back to spawn island, set adventure mode
@@ -759,6 +789,16 @@ class GameManager {
     if (!entity.getDynamicProperty("__bw_shop")) return;
     const teamColor = entity.getDynamicProperty("__bw_team_color") as TeamColor;
     ShopManager.showShop(player, teamColor);
+  }
+
+  private static _clearEquipment(player: Player) {
+    const eq = player.getComponent("equippable");
+    if (!eq) return;
+    eq.setEquipment(EquipmentSlot.Head, undefined);
+    eq.setEquipment(EquipmentSlot.Chest, undefined);
+    eq.setEquipment(EquipmentSlot.Legs, undefined);
+    eq.setEquipment(EquipmentSlot.Feet, undefined);
+    eq.setEquipment(EquipmentSlot.Offhand, undefined);
   }
 
   static isInGame(player: Player): boolean {

@@ -13,16 +13,18 @@
   },
   "type": "module",
   "dependencies": {
-    "@mbler/mcx": "0.0.4-rc.8",
-    "@mbler/mcx-component": "0.0.0-alpha.2",
-    "@mbler/mcx-types": "0.0.4-rc.3"
+    "@mbler/mcx": "link:../mcx-core/packages/client",
+    "@mbler/mcx-types": "0.0.4-rc.5",
+    "sapi-game": "0.0.2"
   },
   "devDependencies": {
     "@minecraft/server": "2.9.0-beta.1.26.31-stable",
     "@minecraft/server-ui": "2.2.0-beta.1.26.31-stable",
     "@types/node": "^26.0.1",
     "cross-env": "^10.1.0",
-    "mbler": "0.2.9-rc.4",
-    "prismarine-nbt": "^2.8.0"
+    "@mbler/mcx-component": "0.0.0-alpha.2",
+    "mbler": "0.2.9-rc.11",
+    "rolldown": "^1.1.0",
+    "@mbler/mcx-core": "link:../mcx-core/packages/core"
   }
 }

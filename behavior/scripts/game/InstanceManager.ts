@@ -119,8 +119,13 @@ class InstanceManager {
     const info = STRUCTURES.init_play;
     const ox = x - Math.floor(40 / 2);
     const oz = z - Math.floor(30 / 2);
-    const bounds = getStructureBounds(ox, MAP_Y, oz, info.size);
-    fillAir(dimension, bounds.min.x, bounds.min.y, bounds.min.z, bounds.max.x, MAP_Y + info.size[1], bounds.max.z);
+    const mx = ox + info.size[0] - 1;
+    const mz = oz + info.size[2] - 1;
+    try {
+      dimension.runCommand(`fill ${ox} 90 ${oz} ${mx} 130 ${mz} air replace`);
+    } catch (e: any) {
+      console.error(`[BW] init island fill failed: ${e?.message ?? e}`);
+    }
     await sleepTicks(5);
     world.structureManager.place(info.id, dimension, { x: ox, y: MAP_Y, z: oz });
     this.setInitIslandPos(x, z);
@@ -136,14 +141,18 @@ class InstanceManager {
     for (const b of allBounds) {
       try {
         dim.runCommand(`tickingarea add ${b.min.x} ${b.min.y} ${b.min.z} ${b.max.x} ${b.max.y} ${b.max.z} bw_game_${instanceId}_${idx} true`);
-      } catch { }
+      } catch (e: any) {
+        console.error(`[BW] game tickingarea add failed: ${e?.message ?? e}`);
+      }
       idx++;
     }
   }
 
   static removeGameTickingAreas(dim: Dimension, instanceId: string) {
     for (let idx = 0; idx < 20; idx++) {
-      try { dim.runCommand(`tickingarea remove bw_game_${instanceId}_${idx}`); } catch { }
+      try { dim.runCommand(`tickingarea remove bw_game_${instanceId}_${idx}`); } catch (e: any) {
+        // expected for unused indices
+      }
     }
   }
 
@@ -163,26 +172,77 @@ class InstanceManager {
   }
 
   static clearInstanceMap(dimension: Dimension, id: string) {
+    console.log(`[BW] clearInstanceMap called for ${id}`);
     const inst = this.getInstance(id);
-    if (!inst) return;
+    if (!inst) { console.log(`[BW] clearInstanceMap: instance ${id} not found`); return; }
     this.removeGameTickingAreas(dimension, id);
     const layout = getMapLayout(inst.x, inst.z);
     const allBounds = this._getAllBounds(layout);
 
+    // Calculate overall bounding box across all structures, clear from Y=10 to Y=150
+    let minX = Infinity, minY = 10, minZ = Infinity, maxX = -Infinity, maxY = 150, maxZ = -Infinity;
     for (const b of allBounds) {
+      if (b.min.x < minX) minX = b.min.x;
+      if (b.max.x > maxX) maxX = b.max.x;
+      if (b.min.z < minZ) minZ = b.min.z;
+      if (b.max.z > maxZ) maxZ = b.max.z;
+    }
+    console.log(`[BW] clearInstanceMap: clearing from (${minX},${minY},${minZ}) to (${maxX},${maxY},${maxZ})`);
+
+    const MAX_FILL = 30000;
+
+    function fillChunked(mnX: number, mnY: number, mnZ: number, mxX: number, mxY: number, mxZ: number) {
+      const dx = mxX - mnX + 1;
+      const dy = mxY - mnY + 1;
+      const dz = mxZ - mnZ + 1;
+      if (dx * dy * dz <= MAX_FILL) {
+        try {
+          dimension.runCommand(`fill ${mnX} ${mnY} ${mnZ} ${mxX} ${mxY} ${mxZ} air replace`);
+        } catch (e: any) {
+          console.error(`[BW] fill (${mnX},${mnY},${mnZ})~(${mxX},${mxY},${mxZ}) failed: ${e?.message ?? e}`);
+        }
+        return;
+      }
+      if (dx >= dy && dx >= dz) {
+        const mid = Math.floor((mnX + mxX) / 2);
+        fillChunked(mnX, mnY, mnZ, mid, mxY, mxZ);
+        fillChunked(mid + 1, mnY, mnZ, mxX, mxY, mxZ);
+      } else if (dz >= dx && dz >= dy) {
+        const mid = Math.floor((mnZ + mxZ) / 2);
+        fillChunked(mnX, mnY, mnZ, mxX, mxY, mid);
+        fillChunked(mnX, mnY, mid + 1, mxX, mxY, mxZ);
+      } else {
+        const mid = Math.floor((mnY + mxY) / 2);
+        fillChunked(mnX, mnY, mnZ, mxX, mid, mxZ);
+        fillChunked(mnX, mid + 1, mnZ, mxX, mxY, mxZ);
+      }
+    }
+
+    // Tick the overall area to ensure chunks are loaded
+    try {
+      dimension.runCommand(`tickingarea add ${minX} ${minY} ${minZ} ${maxX} ${maxY} ${maxZ} bw_clear_temp true`);
+    } catch (e: any) {
+      console.error(`[BW] overall tickingarea add failed: ${e?.message ?? e}`);
+    }
+    fillChunked(minX, minY, minZ, maxX, maxY, maxZ);
+
+    // Kill entities in each structure area
+    for (const b of allBounds) {
+      const dx = b.max.x - b.min.x;
+      const dy = b.max.y - b.min.y;
+      const dz = b.max.z - b.min.z;
       try {
-        dimension.runCommand(`tickingarea add ${b.min.x} ${b.min.y} ${b.min.z} ${b.max.x} ${b.max.y} ${b.max.z} bw_clear_temp true`);
-      } catch { }
-      try {
-        dimension.runCommand(`fill ${b.min.x} ${b.min.y} ${b.min.z} ${b.max.x} ${b.max.y} ${b.max.z} air 0 destroy`);
-      } catch { }
-      try {
-        const dx = b.max.x - b.min.x;
-        const dy = b.max.y - b.min.y;
-        const dz = b.max.z - b.min.z;
         dimension.runCommand(`kill @e[type=item,x=${b.min.x},y=${b.min.y},z=${b.min.z},dx=${dx},dy=${dy},dz=${dz}]`);
-      } catch { }
-      try { dimension.runCommand(`tickingarea remove bw_clear_temp`); } catch { }
+      } catch (e: any) { console.error(`[BW] kill items failed: ${e?.message ?? e}`); }
+      try {
+        dimension.runCommand(`kill @e[type=armor_stand,x=${b.min.x},y=${b.min.y},z=${b.min.z},dx=${dx},dy=${dy},dz=${dz}]`);
+      } catch (e: any) { console.error(`[BW] kill armor_stand failed: ${e?.message ?? e}`); }
+      try {
+        dimension.runCommand(`kill @e[type=villager_v2,x=${b.min.x},y=${b.min.y},z=${b.min.z},dx=${dx},dy=${dy},dz=${dz}]`);
+      } catch (e: any) { console.error(`[BW] kill villager_v2 failed: ${e?.message ?? e}`); }
+    }
+    try { dimension.runCommand(`tickingarea remove bw_clear_temp`); } catch (e: any) {
+      console.error(`[BW] overall tickingarea remove failed: ${e?.message ?? e}`);
     }
   }
 
@@ -222,7 +282,16 @@ class InstanceManager {
     const dim = sender.dimension;
     const layout = getMapLayout(inst.x, inst.z);
 
+    // Teleport player to center to force chunk loading before clearing/placing
     sender.sendMessage(t("loadingIsland", { label: "Center" }));
+    console.log(`[BW] loadAllMaps: teleporting to ${inst.x},${MAP_Y + 5},${inst.z}`);
+    sender.teleport({ x: inst.x, y: MAP_Y + 5, z: inst.z }, { dimension: dim });
+    await sleepTicks(20);
+
+    // Clear all areas (center, teams, small islands) before placing any structures
+    console.log(`[BW] loadAllMaps: calling clearInstanceMap for ${instanceId}`);
+    this.clearInstanceMap(dim, instanceId);
+    await sleepTicks(10);
     const centerInfo = STRUCTURES[layout.center.structureKey];
     world.structureManager.place(centerInfo.id, dim, { x: layout.center.placeOffset[0], y: layout.center.placeOffset[1], z: layout.center.placeOffset[2] });
     sender.teleport({ x: inst.x, y: MAP_Y + 5, z: inst.z }, { dimension: dim });
@@ -342,7 +411,9 @@ class InstanceManager {
     for (const p of positions) {
       try {
         dim.runCommand(`kill @e[type=armor_stand,x=${p.position.x},y=${p.position.y},z=${p.position.z},r=2]`);
-      } catch { }
+      } catch (e: any) {
+        console.error(`[BW] _killAt failed: ${e?.message ?? e}`);
+      }
     }
   }
 

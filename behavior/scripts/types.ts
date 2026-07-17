@@ -127,7 +127,10 @@ export type I18nKeyList =
   | "detailBed"
   | "detailBack"
   | "langChinese"
-  | "langEnglish";
+  | "langEnglish"
+  | "opManagerTitle"
+  | "opManagementTitle"
+  | "mapManagerTitle";
 
 export const I18nLanguageKeyArr = ["zh", "en"] as const;
 export type I18nLanguageList = (typeof I18nLanguageKeyArr)[number];

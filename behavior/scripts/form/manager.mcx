@@ -1,35 +1,30 @@
-<Ui>
-  <title>
-    OP Manger
-  </title>
+<Form setup>
+  <title>{{ opManagerTitle }}</title>
   <button click="openMangerMenu">{{ mangeOP }}</button>
   <button click="openBedwarsManager">{{ bedwarsManager }}</button>
-</Ui>
+</Form>
 
 <script lang="ts">
 import { Player, world } from "@minecraft/server";
 import { ActionFormData } from "@minecraft/server-ui";
 import OpManger from "./opmanger.mcx"
-import BedwarsManager from "./bedwarsManager.mcx"
+import BedwarsForm from "./bedwarsManager.mcx"
 import { t } from "../i18n/locals";
 import GameManager from "../game/GameManager";
+import { showForm } from "@mbler/mcx";
+const opManagerTitle = t("opManagerTitle");
+const mangeOP = t("mangeOp");
+const bedwarsManager = t("bedwarsManager");
+
 export function openMangerMenu(_res: ActionFormData, player: Player) {
-  OpManger.app.ui.show(
+  showForm(
     // @ts-ignore
-    player, {
-    addOp: t("addOp"),
-    removeOp: t("removeOp")
-  });
+    OpManger, player);
 }
 export function openBedwarsManager(_res: ActionFormData, player: Player) {
   GameManager.init();
-  BedwarsManager.app.ui.show(
+  showForm(
     // @ts-ignore
-    player, {
-    createInstance: t("createInstance"),
-    deleteInstance: t("deleteInstance"),
-    instanceList: t("instanceList"),
-    setLanguage: t("setLanguage")
-  });
+    BedwarsForm, player)
 }
 </script>

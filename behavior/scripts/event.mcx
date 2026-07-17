@@ -30,7 +30,6 @@ import InstanceManager from "./game/InstanceManager";
 import { getTeamColorName } from "./game/config";
 /**
  * Handle bed destruction: set bedAlive=false, turn alive team members into spectators, play effects
- * 处理床破坏：设置床为已摧毁，将存活队友设为旁观模式，播放爆炸特效
  */
 export function onPlayerBreakBlock(event: PlayerBreakBlockAfterEvent) {
   const block = event.block;
@@ -46,22 +45,20 @@ export function onPlayerBreakBlock(event: PlayerBreakBlockAfterEvent) {
         const bp = team.bedPosition;
         if (Math.abs(bp.x - pos.x) <= 2 && Math.abs(bp.z - pos.z) <= 2 && Math.abs(bp.y - pos.y) <= 1) {
           team.bedAlive = false;
-          InstanceManager.updateInstance(inst.id, () => {});
+          InstanceManager.updateInstance(inst.id, () => { });
           world.sendMessage(t("bedDestroyed", { color: getTeamColorName(team.color) }));
           // Visual and audio effects
           try {
             const dim = world.getDimension("overworld");
             dim.runCommand(`particle minecraft:large_explosion ${bp.x} ${bp.y} ${bp.z}`);
             dim.runCommand(`playsound random.explode @a ${bp.x} ${bp.y} ${bp.z} 1.0 1.0`);
-          } catch { }
-          // Convert all alive team members to spectators immediately
+          } catch (e: any) {
+            console.error(`[BW] bed break effects failed: ${e?.message ?? e}`);
+          }
+          // Only mark bed as destroyed — alive players continue playing until they die
           for (const playerId of team.players) {
             const p = world.getEntity(playerId) as any;
             if (!p) continue;
-            if (p.getDynamicProperty("__bw_alive") === false) continue;
-            p.setDynamicProperty("__bw_spectator", true);
-            p.setDynamicProperty("__bw_alive", false);
-            try { p.setGameMode(GameMode.Spectator); } catch { }
             p.sendMessage(t("bedDestroyedMsg"));
           }
           return;
@@ -72,16 +69,11 @@ export function onPlayerBreakBlock(event: PlayerBreakBlockAfterEvent) {
 };
 /**
  * Handle item use: menu item (OP UI), fire charge (custom projectile), bridge egg (block placement)
- * 处理物品使用：菜单物品（OP界面）、烈焰弹（自定义射弹）、搭桥蛋（放置方块）
  */
 export function onUseItem(event: ItemUseAfterEvent) {
   if (event.itemStack.typeId == "bedwars:menu") {
     if (isOp(event.source)) {
-      mangerMcx.app.ui.show(event.source as any, {
-        mangeOP: t("mangeOp"),
-        bedwarsManager: t("bedwarsManager"),
-        player: event.source,
-      });
+      mangerMcx.app.ui.show(event.source as any);
     }
   }
   if (event.itemStack.typeId == "minecraft:fire_charge") {
@@ -100,7 +92,6 @@ export function onUseItem(event: ItemUseAfterEvent) {
 
 /**
  * Handle villager shop interaction: when a player hits a shop villager, open the shop UI
- * 处理村民商店交互：当玩家攻击商店村民时打开商店界面
  */
 export function onEntityHurt(event: EntityHurtAfterEvent) {
   const hurtEntity = event.hurtEntity;
@@ -121,7 +112,6 @@ export function onEntityHurt(event: EntityHurtAfterEvent) {
 
 /**
  * Handle bridge egg landing: place wool blocks around the hit location
- * 处理搭桥蛋落地：在落地位置周围放置羊毛方块
  */
 export function onProjectileHitBlock(event: ProjectileHitBlockAfterEvent) {
   const projectile = event.projectile;
@@ -136,12 +126,13 @@ export function onProjectileHitBlock(event: ProjectileHitBlockAfterEvent) {
     ShopManager.handleProjectileHit(owner, {
       x: Math.floor(hitLoc.x), y: Math.floor(hitLoc.y), z: Math.floor(hitLoc.z),
     });
-  } catch { }
+  } catch (e: any) {
+    console.error(`[BW] bridge egg landing failed: ${e?.message ?? e}`);
+  }
 }
 
 /**
  * Handle entity death: mark player as died (for respawn handling)
- * 处理实体死亡：标记玩家已死亡（用于重生处理）
  */
 export function onEntityDie(event: EntityDieAfterEvent) {
   const entity = event.deadEntity;
@@ -152,7 +143,6 @@ export function onEntityDie(event: EntityDieAfterEvent) {
 
 /**
  * Handle player spawn: if player died, trigger respawn logic
- * 处理玩家生成：如果玩家死亡，触发重生逻辑
  */
 export function onPlayerSpawn(event: PlayerSpawnAfterEvent) {
   if (event.initialSpawn) return;

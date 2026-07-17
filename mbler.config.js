@@ -6,7 +6,7 @@ export default defineConfig({
   description: "Bedwar.mcaddon",
   mcVersion: "1.26.31",
   displayName: "起床战争.mcaddon",
-  minify: "oxc",
+  minify: false,
   outGameOnDev: true,
   script: { main: "index.ts", ui: true, lang: "mcx", UseBeta: false },
   build: {

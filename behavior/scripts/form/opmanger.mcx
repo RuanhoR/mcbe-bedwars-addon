@@ -1,13 +1,17 @@
-<Ui>
-  <title>OP Management</title>
-  <button click="addOp">{{ addOp }}</button>
-  <button click="removeOp">{{ removeOp }}</button>
-</Ui>
+<Form setup>
+  <title>{{ opManagementTitle }}</title>
+  <button click="addOp">{{ addOpLabel }}</button>
+  <button click="removeOp">{{ removeOpLabel }}</button>
+</Form>
 <script lang="ts">
 import { Player, world } from "@minecraft/server";
 import { ModalFormData, ActionFormData, ActionFormResponse } from "@minecraft/server-ui";
 import { addOp as addPlayerOp, removeOp as removePlayerOp, getOnlineOps } from "../utils/playerPermission";
 import { t } from "../i18n/locals";
+
+const opManagementTitle = t("opManagementTitle");
+const addOpLabel = t("addOp");
+const removeOpLabel = t("removeOp");
 
 export function addOp(res: ActionFormResponse, player: Player) {
   const form = new ModalFormData()

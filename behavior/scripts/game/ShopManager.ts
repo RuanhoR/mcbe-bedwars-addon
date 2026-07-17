@@ -102,15 +102,14 @@ class ShopManager {
     let remaining = count;
     for (let i = 0; i < inv.size && remaining > 0; i++) {
       const item = inv.getItem(i);
-      if (item && item.typeId === itemId) {
-        const toRemove = Math.min(remaining, item.amount);
-        item.amount -= toRemove;
-        remaining -= toRemove;
-        if (item.amount <= 0) {
-          inv.setItem(i, undefined);
-        } else {
-          inv.setItem(i, item);
-        }
+      if (!item || item.typeId !== itemId) continue;
+      if (item.amount <= remaining) {
+        remaining -= item.amount;
+        inv.setItem(i, undefined);
+      } else {
+        const leftover = new ItemStack(itemId, item.amount - remaining);
+        inv.setItem(i, leftover);
+        remaining = 0;
       }
     }
   }
@@ -219,7 +218,9 @@ class ShopManager {
       }
       try {
         equipment.setEquipment(piece.slot as EquipmentSlot, stack);
-      } catch {}
+      } catch (e: any) {
+        console.error(`[BW] set armor failed: ${e?.message ?? e}`);
+      }
     }
   }
 
@@ -246,7 +247,9 @@ class ShopManager {
           if (bp && bp.typeId === "minecraft:air") {
             bp.setType(woolId);
           }
-        } catch {}
+        } catch (e: any) {
+          console.error(`[BW] bridge egg place wool failed: ${e?.message ?? e}`);
+        }
       }
     }
   }
