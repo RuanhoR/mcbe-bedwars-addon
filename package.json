@@ -13,7 +13,7 @@
   },
   "type": "module",
   "dependencies": {
-    "@mbler/mcx": "link:../mcx-core/packages/client",
+    "@mbler/mcx": "0.0.4-rc.14",
     "@mbler/mcx-types": "0.0.4-rc.5",
     "sapi-game": "0.0.2"
   },
