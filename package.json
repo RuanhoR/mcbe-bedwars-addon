@@ -25,6 +25,6 @@
     "@mbler/mcx-component": "0.0.0-alpha.2",
     "mbler": "0.2.9-rc.11",
     "rolldown": "^1.1.0",
-    "@mbler/mcx-core": "link:../mcx-core/packages/core"
+    "@mbler/mcx-core": "0.1.3-rc.8"
   }
 }
