@@ -1,7 +1,7 @@
 {
   "name": "@ruanhor/bed-wars",
   "description": "起床战争 mcaddon",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "engines": {
     "node": ">=20.0.0"
   },
