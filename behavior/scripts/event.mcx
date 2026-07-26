@@ -57,7 +57,7 @@ export function onPlayerBreakBlock(event: PlayerBreakBlockAfterEvent) {
           }
           // Only mark bed as destroyed — alive players continue playing until they die
           for (const playerId of team.players) {
-            const p = world.getEntity(playerId) as any;
+            const p = world.getEntity(playerId) as Player;
             if (!p) continue;
             p.sendMessage(t("bedDestroyedMsg"));
           }
