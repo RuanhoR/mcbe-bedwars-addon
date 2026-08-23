@@ -7,7 +7,7 @@
 <script lang="ts">
 import { ItemComponent } from "@mbler/mcx-component";
 import MenuIcon from "./../assets/menu_icon.png";
-const item = new ItemComponent({
+export const item = new ItemComponent({
   id: "bedwars:menu",
   format: "1.21.0",
   components: {}
@@ -16,7 +16,4 @@ const item = new ItemComponent({
 item.setName("Menu")
 item.setMaxStackSize(1);
 item.setIcon(MenuIcon)
-export {
-  item,
-}
 </script>
