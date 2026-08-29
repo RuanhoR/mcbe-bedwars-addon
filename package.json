@@ -24,6 +24,6 @@
     "mbler": "0.3.1-dev.1",
     "rolldown": "^1.2.0",
     "@mbler/mcx-core": "1.1.5-dev.1",
-    "mcx-tsc": "^0.0.2-rc.1"
+    "mcx-tsc": "^0.0.2-rc.5"
   }
 }
