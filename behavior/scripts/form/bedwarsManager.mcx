@@ -114,9 +114,17 @@ export function onDelete(res: unknown, player: Player) {
       .button2("§a" + t("cancel"));
     confirm.show(player).then((confirmRes) => {
       if (confirmRes.selection !== 0) return;
-      InstanceManager.clearInstanceMap(player.dimension, inst.id);
-      InstanceManager.deleteInstance(inst.id);
-      player.sendMessage(t("deleteSuccess", { name: inst.name }));
+      // 先等地图清理完成再删除实例数据，否则重置时找不到实例导致清不干净
+      InstanceManager.clearInstanceMap(player.dimension, inst.id)
+        .then(() => {
+          InstanceManager.deleteInstance(inst.id);
+          player.sendMessage(t("deleteSuccess", { name: inst.name }));
+        })
+        .catch((e: any) => {
+          console.error(`[BW] delete instance map clear failed: ${e?.message ?? e}`);
+          InstanceManager.deleteInstance(inst.id);
+          player.sendMessage(t("deleteSuccess", { name: inst.name }));
+        });
     });
   });
 }

@@ -23,10 +23,12 @@ behavior/scripts/
 ├── i18n/locals.ts           # Translation dictionary (zh/en) + t() helper
 ├── utils/
 │   ├── language.ts          # getCurrentLanguage(), setGlobalLanguage()
-│   └── playerPermission.ts  # OP management via dynamic properties
+│   ├── playerPermission.ts  # OP management via dynamic properties
+│   └── worldEditUtils.ts    # Safe block ops (getBlockSafe/setBlockSafe), chunk loading via tickingarea, region clear
 ├── game/
 │   ├── GameManager.ts       # Core game loop, win logic, respawn, endGame
-│   ├── InstanceManager.ts   # Instance CRUD, map loading, position resolution
+│   ├── InstanceManager.ts   # Instance data CRUD (dynamic properties), position resolution
+│   ├── MapReset.ts          # All world ops: chunk loading via tickingarea, map clear/reset, structure placement
 │   ├── ShopManager.ts       # Shop UI and purchase logic
 │   ├── BridgeEggTracker.ts  # Bridge egg block placement
 │   └── config.ts            # Map layouts, shop items, constants, TEAM_WOOL_MAP
@@ -74,6 +76,13 @@ player.sendMessage(t("yourNewKey", { placeholder: "value" }));
 ```
 
 - `.mcx` template variables use `{{ key }}` syntax, passed from `app.ui.show(player, { key: t("...") })`
+
+## Chunk Safety & Map Reset
+
+- Never call `dimension.getBlock()` / `block.setType()` raw — use `getBlockSafe` / `setBlockSafe` from `utils/worldEditUtils.ts` (unloaded chunks throw).
+- Before reading/writing blocks or placing structures in an area, ensure chunks are loaded with `ensureRegionLoaded` (creates a temp tickingarea via `world.tickingAreaManager` and polls until loaded). Release it afterwards with `releaseRegion`.
+- Bulk-clearing a region: use `clearRegionBlocksGen` (chunk-aligned slices, per-column fallback — cross-chunk `fillBlocks` can silently fail).
+- All map reset/load world operations live in `game/MapReset.ts`; `InstanceManager` is data-only, `GameManager` only orchestrates. To reset an instance map call `MapReset.resetInstanceMap(dim, inst)` (or `InstanceManager.clearInstanceMap`).
 
 ## Team Colors
 

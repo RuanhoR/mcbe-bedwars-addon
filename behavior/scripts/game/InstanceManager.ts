@@ -1,7 +1,17 @@
-import { Player, world, Dimension, system } from "@minecraft/server";
+import { Player, world, Dimension } from "@minecraft/server";
 import { WorldDynamicPropertyKeys, BedwarsInstanceData, BedwarsGlobalData, BedwarsTeamData, TeamColor, TEAM_COLORS } from "../types";
-import { MAP_Y, getMapLayout, STRUCTURES, MapLayout } from "./config";
-import { fillAir, getStructureBounds, sleepTicks } from "../utils/worldEditUtils";
+import { MAP_Y, getMapLayout, STRUCTURES } from "./config";
+import { getStructureBounds, sleepTicks, ensureRegionLoaded, releaseRegion } from "../utils/worldEditUtils";
+import {
+  MapRegion,
+  getInstanceRegions,
+  ensureMapLoaded,
+  releaseLoadedMapAreas,
+  clearMapBlocks,
+  clearMapEntities,
+  placeStructure,
+  resetInstanceMap,
+} from "./MapReset";
 import { t } from "../i18n/locals";
 
 class InstanceManager {
@@ -119,131 +129,26 @@ class InstanceManager {
     const info = STRUCTURES.init_play;
     const ox = x - Math.floor(40 / 2);
     const oz = z - Math.floor(30 / 2);
-    const mx = ox + info.size[0] - 1;
-    const mz = oz + info.size[2] - 1;
-    try {
-      dimension.runCommand(`fill ${ox} 90 ${oz} ${mx} 130 ${mz} air replace`);
-    } catch (e: any) {
-      console.error(`[BW] init island fill failed: ${e?.message ?? e}`);
-    }
-    await sleepTicks(5);
-    world.structureManager.place(info.id, dimension, { x: ox, y: MAP_Y, z: oz });
+    const region: MapRegion = { key: "init_island", ...getStructureBounds(ox, MAP_Y, oz, info.size) };
+    // 确保区块加载完成后再操作，避免未加载区块报错
+    await ensureRegionLoaded(dimension, "bw_load_init_island", region);
+    // 先清掉旧岛残留再重建，保证初始岛也是干净的
+    await clearMapBlocks(dimension, [region]);
+    placeStructure(dimension, info.id, { x: ox, y: MAP_Y, z: oz });
+    releaseRegion("bw_load_init_island");
     this.setInitIslandPos(x, z);
     sender.teleport({ x: x, y: MAP_Y + 5, z: z }, { dimension });
   }
 
-  static addGameTickingAreas(dim: Dimension, instanceId: string) {
-    const inst = this.getInstance(instanceId);
-    if (!inst) return;
-    const layout = getMapLayout(inst.x, inst.z);
-    const allBounds = this._getAllBounds(layout);
-    let idx = 0;
-    for (const b of allBounds) {
-      try {
-        dim.runCommand(`tickingarea add ${b.min.x} ${b.min.y} ${b.min.z} ${b.max.x} ${b.max.y} ${b.max.z} bw_game_${instanceId}_${idx} true`);
-      } catch (e: any) {
-        console.error(`[BW] game tickingarea add failed: ${e?.message ?? e}`);
-      }
-      idx++;
-    }
-  }
-
-  static removeGameTickingAreas(dim: Dimension, instanceId: string) {
-    for (let idx = 0; idx < 20; idx++) {
-      try { dim.runCommand(`tickingarea remove bw_game_${instanceId}_${idx}`); } catch (e: any) {
-        // expected for unused indices
-      }
-    }
-  }
-
-  private static _getAllBounds(layout: MapLayout): { min: { x: number; y: number; z: number }; max: { x: number; y: number; z: number } }[] {
-    const allBounds: { min: { x: number; y: number; z: number }; max: { x: number; y: number; z: number } }[] = [];
-    const centerInfo = STRUCTURES[layout.center.structureKey];
-    allBounds.push(getStructureBounds(layout.center.placeOffset[0], layout.center.placeOffset[1], layout.center.placeOffset[2], centerInfo.size));
-    for (const team of layout.teams) {
-      const info = STRUCTURES[team.structureKey];
-      allBounds.push(getStructureBounds(team.placeOffset[0], team.placeOffset[1], team.placeOffset[2], info.size));
-    }
-    for (const island of layout.smallIslands) {
-      const info = STRUCTURES[island.structureKey];
-      allBounds.push(getStructureBounds(island.placeOffset[0], island.placeOffset[1], island.placeOffset[2], info.size));
-    }
-    return allBounds;
-  }
-
-  static clearInstanceMap(dimension: Dimension, id: string) {
-    console.log(`[BW] clearInstanceMap called for ${id}`);
+  /**
+   * 清空并重置实例地图。实际的区块加载、方块清理、实体清理
+   * 全部由 MapReset 模块负责（异步、分批、不依赖玩家位置）。
+   */
+  static async clearInstanceMap(dimension: Dimension, id: string): Promise<void> {
     const inst = this.getInstance(id);
     if (!inst) { console.log(`[BW] clearInstanceMap: instance ${id} not found`); return; }
-    this.removeGameTickingAreas(dimension, id);
-    const layout = getMapLayout(inst.x, inst.z);
-    const allBounds = this._getAllBounds(layout);
-
-    // Calculate overall bounding box across all structures, clear from Y=10 to Y=150
-    let minX = Infinity, minY = 10, minZ = Infinity, maxX = -Infinity, maxY = 150, maxZ = -Infinity;
-    for (const b of allBounds) {
-      if (b.min.x < minX) minX = b.min.x;
-      if (b.max.x > maxX) maxX = b.max.x;
-      if (b.min.z < minZ) minZ = b.min.z;
-      if (b.max.z > maxZ) maxZ = b.max.z;
-    }
-    console.log(`[BW] clearInstanceMap: clearing from (${minX},${minY},${minZ}) to (${maxX},${maxY},${maxZ})`);
-
-    const MAX_FILL = 30000;
-
-    function fillChunked(mnX: number, mnY: number, mnZ: number, mxX: number, mxY: number, mxZ: number) {
-      const dx = mxX - mnX + 1;
-      const dy = mxY - mnY + 1;
-      const dz = mxZ - mnZ + 1;
-      if (dx * dy * dz <= MAX_FILL) {
-        try {
-          dimension.runCommand(`fill ${mnX} ${mnY} ${mnZ} ${mxX} ${mxY} ${mxZ} air replace`);
-        } catch (e: any) {
-          console.error(`[BW] fill (${mnX},${mnY},${mnZ})~(${mxX},${mxY},${mxZ}) failed: ${e?.message ?? e}`);
-        }
-        return;
-      }
-      if (dx >= dy && dx >= dz) {
-        const mid = Math.floor((mnX + mxX) / 2);
-        fillChunked(mnX, mnY, mnZ, mid, mxY, mxZ);
-        fillChunked(mid + 1, mnY, mnZ, mxX, mxY, mxZ);
-      } else if (dz >= dx && dz >= dy) {
-        const mid = Math.floor((mnZ + mxZ) / 2);
-        fillChunked(mnX, mnY, mnZ, mxX, mxY, mid);
-        fillChunked(mnX, mnY, mid + 1, mxX, mxY, mxZ);
-      } else {
-        const mid = Math.floor((mnY + mxY) / 2);
-        fillChunked(mnX, mnY, mnZ, mxX, mid, mxZ);
-        fillChunked(mnX, mid + 1, mnZ, mxX, mxY, mxZ);
-      }
-    }
-
-    // Tick the overall area to ensure chunks are loaded
-    try {
-      dimension.runCommand(`tickingarea add ${minX} ${minY} ${minZ} ${maxX} ${maxY} ${maxZ} bw_clear_temp true`);
-    } catch (e: any) {
-      console.error(`[BW] overall tickingarea add failed: ${e?.message ?? e}`);
-    }
-    fillChunked(minX, minY, minZ, maxX, maxY, maxZ);
-
-    // Kill entities in each structure area
-    for (const b of allBounds) {
-      const dx = b.max.x - b.min.x;
-      const dy = b.max.y - b.min.y;
-      const dz = b.max.z - b.min.z;
-      try {
-        dimension.runCommand(`kill @e[type=item,x=${b.min.x},y=${b.min.y},z=${b.min.z},dx=${dx},dy=${dy},dz=${dz}]`);
-      } catch (e: any) { console.error(`[BW] kill items failed: ${e?.message ?? e}`); }
-      try {
-        dimension.runCommand(`kill @e[type=armor_stand,x=${b.min.x},y=${b.min.y},z=${b.min.z},dx=${dx},dy=${dy},dz=${dz}]`);
-      } catch (e: any) { console.error(`[BW] kill armor_stand failed: ${e?.message ?? e}`); }
-      try {
-        dimension.runCommand(`kill @e[type=villager_v2,x=${b.min.x},y=${b.min.y},z=${b.min.z},dx=${dx},dy=${dy},dz=${dz}]`);
-      } catch (e: any) { console.error(`[BW] kill villager_v2 failed: ${e?.message ?? e}`); }
-    }
-    try { dimension.runCommand(`tickingarea remove bw_clear_temp`); } catch (e: any) {
-      console.error(`[BW] overall tickingarea remove failed: ${e?.message ?? e}`);
-    }
+    console.log(`[BW] clearInstanceMap: resetting ${id}`);
+    await resetInstanceMap(dimension, inst);
   }
 
   /**
@@ -282,20 +187,22 @@ class InstanceManager {
     const dim = sender.dimension;
     const layout = getMapLayout(inst.x, inst.z);
 
-    // Teleport player to center to force chunk loading before clearing/placing
-    sender.sendMessage(t("loadingIsland", { label: "Center" }));
-    console.log(`[BW] loadAllMaps: teleporting to ${inst.x},${MAP_Y + 5},${inst.z}`);
-    sender.teleport({ x: inst.x, y: MAP_Y + 5, z: inst.z }, { dimension: dim });
-    await sleepTicks(20);
+    // 1. 用临时 tickingarea 确保整张地图的区块加载完成（不再依赖传送玩家/侦察员加载区块）
+    console.log(`[BW] loadAllMaps: ensuring chunks loaded for ${instanceId}`);
+    await ensureMapLoaded(dim, inst);
 
-    // Clear all areas (center, teams, small islands) before placing any structures
-    console.log(`[BW] loadAllMaps: calling clearInstanceMap for ${instanceId}`);
-    this.clearInstanceMap(dim, instanceId);
-    await sleepTicks(10);
+    // 2. 清空旧地图（方块 + 实体），保证重建干净
+    console.log(`[BW] loadAllMaps: clearing old map for ${instanceId}`);
+    const regions = getInstanceRegions(inst);
+    await clearMapBlocks(dim, regions);
+    clearMapEntities(dim, regions);
+    await sleepTicks(5);
+
+    // 3. 逐个放置结构并解析盔甲架位置
     const centerInfo = STRUCTURES[layout.center.structureKey];
-    world.structureManager.place(centerInfo.id, dim, { x: layout.center.placeOffset[0], y: layout.center.placeOffset[1], z: layout.center.placeOffset[2] });
-    sender.teleport({ x: inst.x, y: MAP_Y + 5, z: inst.z }, { dimension: dim });
-    await sleepTicks(10);
+    sender.sendMessage(t("loadingIsland", { label: "Center" }));
+    placeStructure(dim, centerInfo.id, { x: layout.center.placeOffset[0], y: layout.center.placeOffset[1], z: layout.center.placeOffset[2] });
+    await sleepTicks(5);
     const centerEntities = this.findArmorStands(dim, layout.center.placeOffset[0], layout.center.placeOffset[1], layout.center.placeOffset[2], centerInfo.size);
     this.processCenterEntities(inst, centerEntities);
 
@@ -303,9 +210,8 @@ class InstanceManager {
       const team = layout.teams[i];
       const info = STRUCTURES[team.structureKey];
       sender.sendMessage(t("loadingIsland", { label: team.label }));
-      world.structureManager.place(info.id, dim, { x: team.placeOffset[0], y: team.placeOffset[1], z: team.placeOffset[2] });
-      sender.teleport({ x: team.placeOffset[0] + 9, y: MAP_Y + 5, z: team.placeOffset[2] + 9 }, { dimension: dim });
-      await sleepTicks(10);
+      placeStructure(dim, info.id, { x: team.placeOffset[0], y: team.placeOffset[1], z: team.placeOffset[2] });
+      await sleepTicks(5);
       const entities = this.findArmorStands(dim, team.placeOffset[0], team.placeOffset[1], team.placeOffset[2], info.size);
       this.processTeamEntities(inst, team.color, entities);
     }
@@ -314,11 +220,14 @@ class InstanceManager {
       const island = layout.smallIslands[i];
       const info = STRUCTURES[island.structureKey];
       sender.sendMessage(t("loadingIsland", { label: island.label }));
-      world.structureManager.place(info.id, dim, { x: island.placeOffset[0], y: island.placeOffset[1], z: island.placeOffset[2] });
+      placeStructure(dim, info.id, { x: island.placeOffset[0], y: island.placeOffset[1], z: island.placeOffset[2] });
       await sleepTicks(5);
       const entities = this.findArmorStands(dim, island.placeOffset[0], island.placeOffset[1], island.placeOffset[2], info.size);
       this.processIslandEntities(inst, entities);
     }
+
+    // 4. 释放临时加载区域
+    releaseLoadedMapAreas(inst);
 
     this.updateInstance(instanceId, (inst) => {
       for (const team of inst.teams) {
@@ -330,25 +239,6 @@ class InstanceManager {
     sender.addEffect("regeneration", 100, { amplifier: 255, showParticles: false });
     sender.sendMessage(t("mapLoadComplete"));
     return true;
-  }
-
-  static placeAllStructures(dim: Dimension, instanceId: string) {
-    const inst = this.getInstance(instanceId);
-    if (!inst) return;
-    const layout = getMapLayout(inst.x, inst.z);
-
-    const centerInfo = STRUCTURES[layout.center.structureKey];
-    world.structureManager.place(centerInfo.id, dim, { x: layout.center.placeOffset[0], y: layout.center.placeOffset[1], z: layout.center.placeOffset[2] });
-
-    for (const team of layout.teams) {
-      const info = STRUCTURES[team.structureKey];
-      world.structureManager.place(info.id, dim, { x: team.placeOffset[0], y: team.placeOffset[1], z: team.placeOffset[2] });
-    }
-
-    for (const island of layout.smallIslands) {
-      const info = STRUCTURES[island.structureKey];
-      world.structureManager.place(info.id, dim, { x: island.placeOffset[0], y: island.placeOffset[1], z: island.placeOffset[2] });
-    }
   }
 
   /**

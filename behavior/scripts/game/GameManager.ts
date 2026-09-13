@@ -13,6 +13,13 @@ import { BedwarsInstanceData, TeamColor, BedwarsTeamData } from "../types";
 import InstanceManager from "./InstanceManager";
 import ShopManager from "./ShopManager";
 import {
+  ensureMapLoaded,
+  releaseLoadedMapAreas,
+  addGameAreas,
+  placeStructure,
+} from "./MapReset";
+import { sleepTicks } from "../utils/worldEditUtils";
+import {
   TEAM_WOOL_MAP,
   getTeamColorName,
   MAP_Y,
@@ -329,161 +336,111 @@ class GameManager {
     this._runningGames.add(instanceId);
     InstanceManager.setInstanceStatus(instanceId, "playing");
 
+    void this._runStartSequence(instanceId);
+    world.sendMessage(t("gameStartBroadcast", { name: inst.name }));
+  }
+
+  /**
+   * 游戏开始流程（异步）：区块由 MapReset 的临时 tickingarea 保证加载，
+   * 不再依赖“侦察员”玩家四处传送来加载区块。
+   */
+  private static async _runStartSequence(instanceId: string) {
+    const inst = InstanceManager.getInstance(instanceId);
+    if (!inst) return;
     const dim = world.getDimension("overworld");
 
-    system.runJob(
-      (function* () {
-        const layout = getMapLayout(inst.x, inst.z);
+    // 1. 确保整张地图区块加载完成
+    await ensureMapLoaded(dim, inst);
 
-        // Find a player to act as scout (teleport around to force chunk loading)
-        let scout: Player | null = null;
-        for (const team of inst.teams) {
-          for (const pid of team.players) {
-            const p = world.getEntity(pid) as Player;
-            if (p) {
-              scout = p;
-              break;
-            }
-          }
-          if (scout) break;
-        }
+    // 2. 放置全部结构（小岛、队伍岛、中岛）
+    const layout = getMapLayout(inst.x, inst.z);
+    for (const island of layout.smallIslands) {
+      const info = STRUCTURES[island.structureKey];
+      placeStructure(dim, info.id, {
+        x: island.placeOffset[0],
+        y: island.placeOffset[1],
+        z: island.placeOffset[2],
+      });
+    }
+    for (const team of layout.teams) {
+      const info = STRUCTURES[team.structureKey];
+      placeStructure(dim, info.id, {
+        x: team.placeOffset[0],
+        y: team.placeOffset[1],
+        z: team.placeOffset[2],
+      });
+    }
+    const centerInfo = STRUCTURES[layout.center.structureKey];
+    placeStructure(dim, centerInfo.id, {
+      x: layout.center.placeOffset[0],
+      y: layout.center.placeOffset[1],
+      z: layout.center.placeOffset[2],
+    });
+    await sleepTicks(5);
 
-        // Place all structures (teams, small islands, center)
-        for (const team of layout.teams) {
-          const info = STRUCTURES[team.structureKey];
-          world.structureManager.place(info.id, dim, {
-            x: team.placeOffset[0],
-            y: team.placeOffset[1],
-            z: team.placeOffset[2],
-          });
-          if (scout) {
-            scout.teleport(
-              {
-                x: team.placeOffset[0] + 9,
-                y: MAP_Y + 5,
-                z: team.placeOffset[2] + 9,
-              },
-              { dimension: dim },
-            );
-            yield system.waitTicks(3);
-          }
-        }
-        for (const island of layout.smallIslands) {
-          const info = STRUCTURES[island.structureKey];
-          world.structureManager.place(info.id, dim, {
-            x: island.placeOffset[0],
-            y: island.placeOffset[1],
-            z: island.placeOffset[2],
-          });
-          if (scout) {
-            scout.teleport(
-              {
-                x: island.placeOffset[0] + 3,
-                y: MAP_Y + 5,
-                z: island.placeOffset[2] + 3,
-              },
-              { dimension: dim },
-            );
-            yield system.waitTicks(3);
-          }
-        }
-        const centerInfo = STRUCTURES[layout.center.structureKey];
-        world.structureManager.place(centerInfo.id, dim, {
-          x: layout.center.placeOffset[0],
-          y: layout.center.placeOffset[1],
-          z: layout.center.placeOffset[2],
+    // 3. 解析所有位置（铁/金/钻石/床/商店）并清理盔甲架
+    InstanceManager.resolveAllPositions(dim, instanceId);
+
+    // 4. 建立游戏期长效区块保持区，释放临时加载区
+    await addGameAreas(dim, instanceId, inst);
+    releaseLoadedMapAreas(inst);
+
+    // 5. 收拢玩家到初始岛并清空背包
+    const players: Player[] = [];
+    for (const team of inst.teams) {
+      for (const playerId of team.players) {
+        const p = world.getEntity(playerId) as Player;
+        if (!p) continue;
+        players.push(p);
+        const inv = p.getComponent("inventory")?.container;
+        if (inv)
+          for (let i = 0; i < inv.size; i++) inv.setItem(i, undefined);
+        GameManager._clearEquipment(p);
+        p.addEffect("regeneration", 100, {
+          amplifier: 255,
+          showParticles: false,
         });
-        if (scout) {
-          scout.teleport(
+        p.teleport(
+          { x: inst.initIslandX, y: MAP_Y + 5, z: inst.initIslandZ },
+          { dimension: dim },
+        );
+      }
+    }
+
+    // 6. 倒计时
+    for (let i = 5; i >= 1; i--) {
+      for (const p of players) {
+        if (p.isValid) p.onScreenDisplay.setTitle(String(i));
+      }
+      await sleepTicks(20);
+    }
+
+    // 7. 传送回家、切换生存、生成商店村民
+    for (const team of inst.teams) {
+      for (const playerId of team.players) {
+        const p = world.getEntity(playerId) as Player;
+        if (!p) continue;
+        p.onScreenDisplay.setTitle(t("gameGo"));
+        p.setGameMode(GameMode.Survival);
+        if (team.bedPosition) {
+          p.teleport(
             {
-              x: layout.center.placeOffset[0] + 22,
-              y: MAP_Y + 5,
-              z: layout.center.placeOffset[2] + 23,
+              x: team.bedPosition.x,
+              y: team.bedPosition.y + 1,
+              z: team.bedPosition.z,
             },
             { dimension: dim },
           );
-          yield system.waitTicks(3);
+        } else {
+          p.teleport(
+            { x: inst.x, y: MAP_Y + 5, z: inst.z },
+            { dimension: dim },
+          );
         }
-
-        // Resolve all positions from config (iron, gold, diamond, bed, shop) and kill armor stands
-        InstanceManager.resolveAllPositions(dim, instanceId);
-
-        // Add ticking areas to keep all game chunks loaded throughout gameplay
-        InstanceManager.addGameTickingAreas(dim, instanceId);
-
-        // Return scout to init island
-        if (scout) {
-          try {
-            scout.teleport(
-              { x: inst.initIslandX, y: MAP_Y + 5, z: inst.initIslandZ },
-              { dimension: dim },
-            );
-          } catch (e: any) {
-            console.error(`[BW] scout teleport failed: ${e?.message ?? e}`);
-          }
-        }
-
-        // Teleport all players to init island, clear inventory
-        for (const team of inst.teams) {
-          for (const playerId of team.players) {
-            const p = world.getEntity(playerId) as Player;
-            if (!p) continue;
-            const inv = p.getComponent("inventory")?.container;
-            if (inv)
-              for (let i = 0; i < inv.size; i++) inv.setItem(i, undefined);
-            GameManager._clearEquipment(p);
-            p.addEffect("regeneration", 100, {
-              amplifier: 255,
-              showParticles: false,
-            });
-            p.teleport(
-              { x: inst.initIslandX, y: MAP_Y + 5, z: inst.initIslandZ },
-              { dimension: dim },
-            );
-          }
-        }
-
-        // Countdown
-        for (let i = 5; i >= 1; i--) {
-          for (const team of inst.teams) {
-            for (const playerId of team.players) {
-              const p = world.getEntity(playerId) as Player;
-              if (p) p.onScreenDisplay.setTitle(String(i));
-            }
-          }
-          yield system.waitTicks(20);
-        }
-
-        // Teleport to beds, set survival, spawn shop bees
-        for (const team of inst.teams) {
-          for (const playerId of team.players) {
-            const p = world.getEntity(playerId) as Player;
-            if (!p) continue;
-            p.onScreenDisplay.setTitle(t("gameGo"));
-            p.setGameMode(GameMode.Survival);
-            if (team.bedPosition) {
-              p.teleport(
-                {
-                  x: team.bedPosition.x,
-                  y: team.bedPosition.y + 1,
-                  z: team.bedPosition.z,
-                },
-                { dimension: dim },
-              );
-            } else {
-              p.teleport(
-                { x: inst.x, y: MAP_Y + 5, z: inst.z },
-                { dimension: dim },
-              );
-            }
-            yield system.waitTicks(1);
-            GameManager._spawnShopVillager(p, team);
-          }
-        }
-      })() as unknown as Generator<void, void, void>,
-    );
-
-    world.sendMessage(t("gameStartBroadcast", { name: inst.name }));
+        await sleepTicks(1);
+        GameManager._spawnShopVillager(p, team);
+      }
+    }
   }
 
   private static _spawnShopVillager(
@@ -706,10 +663,10 @@ class GameManager {
       team.players = [];
     }
 
-    // Async cleanup: remove villagers, fireballs, teleport players, clear map
+    // Async cleanup: remove villagers, fireballs, teleport players
+    const dim = world.getDimension("overworld");
     system.runJob(
       (function* () {
-        const dim = world.getDimension("overworld");
         // Kill shop villagers belonging to this instance
         const villagers = dim.getEntities({ type: "minecraft:villager_v2" });
         for (const villager of villagers) {
@@ -743,11 +700,14 @@ class GameManager {
           player.setGameMode(GameMode.Adventure);
           player.sendMessage(t("gameEnded"));
         }
-        yield;
-        // Clear the map structures
-        InstanceManager.clearInstanceMap(dim, instanceId);
       })(),
     );
+
+    // Map reset is decoupled (MapReset): it loads chunks itself before clearing,
+    // so it can run fully async without depending on player positions
+    InstanceManager.clearInstanceMap(dim, instanceId).catch((e: any) => {
+      console.error(`[BW] endGame map reset failed: ${e?.message ?? e}`);
+    });
 
     world.sendMessage(t("gameEndBroadcast", { name: inst.name }));
   }
