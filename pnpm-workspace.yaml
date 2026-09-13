@@ -1,2 +1,4 @@
 minimumReleaseAgeStrict: false
 minimumReleaseAge: 0
+overrides:
+  '@mbler/mfd': link:../../addon-downloader-website
