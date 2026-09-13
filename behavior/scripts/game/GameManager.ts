@@ -6,7 +6,10 @@ import {
   Entity,
   ItemStack,
   EquipmentSlot,
+  Dimension,
+  ScoreboardIdentityType,
 } from "@minecraft/server";
+import type { ScoreboardScoreInfo } from "@minecraft/server";
 import type { I18nKeyList } from "../types";
 import { t } from "../i18n/locals";
 import { BedwarsInstanceData, TeamColor, BedwarsTeamData } from "../types";
@@ -39,6 +42,9 @@ const IRON_INTERVAL = 8;
 const GOLD_INTERVAL = 30;
 const DIAMOND_INTERVAL = 80;
 const SCOREBOARD_OBJ = "bedwarsscore";
+// Shop villager: near-permanent protection effects + low-frequency position anchor
+const SHOP_VILLAGER_EFFECT_TICKS = 2_000_000;
+const SHOP_VILLAGER_POS_TICKS = 20;
 
 /**
  * Core game manager - handles game lifecycle, tick loop, win conditions, respawn, and cleanup
@@ -74,7 +80,6 @@ class GameManager {
       const tick = (this._instanceTick[inst.id] || 0) + 1;
       this._instanceTick[inst.id] = tick;
       this._spawnResources(inst, tick);
-      this._protectShopVillagers(inst);
       this._updateScoreboard(inst);
       this._checkWinCondition(inst);
     }
@@ -86,10 +91,11 @@ class GameManager {
 
   private static _scoreboardActive = false;
 
+  /** 只创建一次 objective 和侧边栏显示，避免每轮 remove/add 造成的开销与闪烁 */
   private static _ensureScoreboard() {
     if (this._scoreboardActive) return;
+    const dim = world.getDimension("overworld");
     try {
-      const dim = world.getDimension("overworld");
       dim.runCommand(
         `scoreboard objectives add ${SCOREBOARD_OBJ} dummy Bedwars`,
       );
@@ -97,7 +103,6 @@ class GameManager {
       console.error(`[BW] scoreboard add failed: ${e?.message ?? e}`);
     }
     try {
-      const dim = world.getDimension("overworld");
       dim.runCommand(
         `scoreboard objectives setdisplay sidebar ${SCOREBOARD_OBJ}`,
       );
@@ -109,59 +114,76 @@ class GameManager {
 
   private static _removeScoreboard() {
     try {
-      const dim = world.getDimension("overworld");
-      dim.runCommand(`scoreboard objectives remove ${SCOREBOARD_OBJ}`);
+      world.scoreboard.removeObjective(SCOREBOARD_OBJ);
     } catch (e: any) {
       console.error(`[BW] scoreboard remove failed: ${e?.message ?? e}`);
     }
     this._scoreboardActive = false;
   }
 
-  private static _clearScorePlayers() {
-    try {
-      const dim = world.getDimension("overworld");
-      dim.runCommand(`scoreboard players reset @a ${SCOREBOARD_OBJ}`);
-    } catch (e: any) {
-      console.error(`[BW] scoreboard reset failed: ${e?.message ?? e}`);
-    }
-  }
-
+  /**
+   * 记分板更新：用 SAPI 分数 API 增量更新假玩家行，
+   * 替代旧版每 10 tick "remove objective + add + 逐行 runCommand" 的重开销做法。
+   */
   private static _updateScoreboard(inst: BedwarsInstanceData) {
     this._ensureScoreboard();
-    const dim = world.getDimension("overworld");
+    let obj: ReturnType<typeof world.scoreboard.getObjective>;
     try {
-      try {
-        dim.runCommand(`scoreboard objectives remove ${SCOREBOARD_OBJ}`);
-      } catch (e: any) {
-        console.error(`[BW] scoreboard remove in update failed: ${e?.message ?? e}`);
-      }
-      dim.runCommand(
-        `scoreboard objectives add ${SCOREBOARD_OBJ} dummy Bedwars`,
-      );
-      dim.runCommand(
-        `scoreboard objectives setdisplay sidebar ${SCOREBOARD_OBJ}`,
-      );
-      dim.runCommand(
-        `scoreboard players set "${t("scoreboardTitle")}" ${SCOREBOARD_OBJ} 100`,
-      );
-      dim.runCommand(
-        `scoreboard players set "${t("scoreboardStatus", { name: inst.name, status: inst.status })}" ${SCOREBOARD_OBJ} 99`,
-      );
-      let idx = 98;
-      for (const team of inst.teams) {
-        const colorName = getTeamColorName(team.color);
-        const alive = team.players.filter((id) => {
-          const p = world.getEntity(id);
-          return p && !p.getDynamicProperty(PLAYER_IS_SPECTATOR_KEY);
-        }).length;
-        const bed = team.bedAlive ? "§a√" : "§c×";
-        dim.runCommand(
-          `scoreboard players set "${t("scoreboardTeamLine", { color: colorName, bed: bed, alive: String(alive) })}" ${SCOREBOARD_OBJ} ${idx}`,
-        );
-        idx--;
-      }
+      obj = world.scoreboard.getObjective(SCOREBOARD_OBJ);
     } catch (e: any) {
-      console.error(`[BW] updateScoreboard failed: ${e?.message ?? e}`);
+      console.error(`[BW] getObjective failed: ${e?.message ?? e}`);
+      return;
+    }
+    if (!obj) return;
+
+    const lines = new Map<string, number>();
+    lines.set(t("scoreboardTitle"), 100);
+    lines.set(
+      t("scoreboardStatus", { name: inst.name, status: inst.status }),
+      99,
+    );
+    let idx = 98;
+    for (const team of inst.teams) {
+      const colorName = getTeamColorName(team.color);
+      const alive = team.players.filter((id) => {
+        const p = world.getEntity(id);
+        return p && !p.getDynamicProperty(PLAYER_IS_SPECTATOR_KEY);
+      }).length;
+      const bed = team.bedAlive ? "§a√" : "§c×";
+      lines.set(
+        t("scoreboardTeamLine", {
+          color: colorName,
+          bed: bed,
+          alive: String(alive),
+        }),
+        idx,
+      );
+      idx--;
+    }
+
+    // 清掉内容已变化的旧行（如 bed √→× 后的旧文本残留）
+    let scores: ScoreboardScoreInfo[] = [];
+    try {
+      scores = obj.getScores();
+    } catch {}
+    for (const info of scores) {
+      const participant = info.participant;
+      if (
+        participant.type === ScoreboardIdentityType.FakePlayer &&
+        !lines.has(participant.displayName)
+      ) {
+        try {
+          obj.removeParticipant(participant);
+        } catch {}
+      }
+    }
+
+    for (const [line, score] of lines) {
+      try {
+        obj.setScore(line, score);
+      } catch (e: any) {
+        console.error(`[BW] setScore failed: ${e?.message ?? e}`);
+      }
     }
   }
 
@@ -196,34 +218,6 @@ class GameManager {
     // No teams alive (draw / all eliminated) -> end game with no winner
     if (aliveTeams.length === 0) {
       this.endGame(inst.id);
-    }
-  }
-
-  private static _protectShopVillagers(inst: BedwarsInstanceData) {
-    const dim = world.getDimension("overworld");
-    const villagers = dim.getEntities({ type: "minecraft:villager_v2" });
-    for (const villager of villagers) {
-      if (villager.getDynamicProperty("__bw_instance") !== inst.id) continue;
-      try {
-        villager.addEffect("slowness", 1200, {
-          amplifier: 255,
-          showParticles: false,
-        });
-        villager.addEffect("regeneration", 1200, {
-          amplifier: 255,
-          showParticles: false,
-        });
-        villager.addEffect("health_boost", 1200, {
-          amplifier: 255,
-          showParticles: false,
-        });
-        villager.addEffect("resistance", 1200, {
-          amplifier: 255,
-          showParticles: false,
-        });
-      } catch (e: any) {
-        console.error(`[BW] protect villager effect failed: ${e?.message ?? e}`);
-      }
     }
   }
 
@@ -381,6 +375,11 @@ class GameManager {
     // 3. 解析所有位置（铁/金/钻石/床/商店）并清理盔甲架
     InstanceManager.resolveAllPositions(dim, instanceId);
 
+    // 3.5 生成商店村民：此时区块仍由临时加载区保证加载，商人必定能生成。
+    // 旧版在倒计时结束、玩家传送后 1 tick 才生成，区块未就绪时 spawnEntity
+    // 抛错后只打日志、整局都没有商人（"进地图没有商人"的原因）。
+    this._spawnShopVillagers(instanceId, inst);
+
     // 4. 建立游戏期长效区块保持区，释放临时加载区
     await addGameAreas(dim, instanceId, inst);
     releaseLoadedMapAreas(inst);
@@ -415,7 +414,7 @@ class GameManager {
       await sleepTicks(20);
     }
 
-    // 7. 传送回家、切换生存、生成商店村民
+    // 7. 传送回家、切换生存（商人在 3.5 步已生成）
     for (const team of inst.teams) {
       for (const playerId of team.players) {
         const p = world.getEntity(playerId) as Player;
@@ -437,62 +436,81 @@ class GameManager {
             { dimension: dim },
           );
         }
-        await sleepTicks(1);
-        GameManager._spawnShopVillager(p, team);
       }
     }
   }
 
-  private static _spawnShopVillager(
-    player: Player,
-    team: {
-      color: TeamColor;
-      shopPosition?: { x: number; y: number; z: number } | null;
-    },
-  ) {
-    if (!team.shopPosition) return;
+  /** 清掉本实例旧商人并按队伍重新生成，每个队伍一个商人 */
+  private static _spawnShopVillagers(instanceId: string, inst: BedwarsInstanceData) {
     const dim = world.getDimension("overworld");
-    const instanceId = player.getDynamicProperty(PLAYER_INSTANCE_KEY) as string;
-    const existingVillagers = dim.getEntities({ type: "minecraft:villager_v2" });
-    for (const villager of existingVillagers) {
-      if (
-        villager.getDynamicProperty("__bw_instance") === instanceId &&
-        villager.getDynamicProperty("__bw_team_color") === team.color
-      ) {
-        try { villager.kill(); } catch (e: any) {
-          console.error(`[BW] kill old shop villager failed: ${e?.message ?? e}`);
+    try {
+      for (const villager of dim.getEntities({ type: "minecraft:villager_v2" })) {
+        if (villager.getDynamicProperty("__bw_instance") === instanceId) {
+          try { villager.kill(); } catch {}
         }
       }
+    } catch (e: any) {
+      console.error(`[BW] clear old shop villagers failed: ${e?.message ?? e}`);
+    }
+    for (const team of inst.teams) {
+      if (!team.shopPosition) continue;
+      void this._spawnTeamShopVillager(dim, instanceId, team.color, team.shopPosition);
+    }
+  }
+
+  /**
+   * 生成单个队伍的商店村民。区块未就绪导致 spawnEntity 抛错时短暂重试，
+   * 确保商人一定出现；出生即上长效保护效果（替代旧版每 10 tick 的
+   * 全维度实体查询 + 上效果），定位传送定时器在商人被杀后自动停止
+   * （修复旧版 runInterval 永不清理的泄漏）。
+   */
+  private static async _spawnTeamShopVillager(
+    dim: Dimension,
+    instanceId: string,
+    color: TeamColor,
+    shopPosition: { x: number; y: number; z: number },
+  ) {
+    const pos = {
+      x: shopPosition.x + 0.5,
+      y: shopPosition.y + 1,
+      z: shopPosition.z + 0.5,
+    };
+    let villager: Entity | undefined;
+    for (let attempt = 0; attempt < 5 && !villager; attempt++) {
+      try {
+        villager = dim.spawnEntity("minecraft:villager_v2", pos);
+      } catch {
+        await sleepTicks(10);
+      }
+    }
+    if (!villager) {
+      console.error(`[BW] spawn shop villager failed after retries (team ${color})`);
+      return;
     }
     try {
-      const villager = dim.spawnEntity("minecraft:villager_v2", {
-        x: team.shopPosition.x + 0.5,
-        y: team.shopPosition.y + 1,
-        z: team.shopPosition.z + 0.5,
-      });
-      villager.nameTag = t("shopVillagerName", { color: getTeamColorName(team.color) });
+      villager.nameTag = t("shopVillagerName", { color: getTeamColorName(color) });
       villager.setDynamicProperty("__bw_shop", true);
       villager.setDynamicProperty("__bw_instance", instanceId);
-      villager.setDynamicProperty("__bw_team_color", team.color);
-      villager.setDynamicProperty("__bw_no_move", true);
-      system.runInterval(() => {
-        try {
-          if (!villager.isValid || !villager.hasComponent("health")) return;
-          villager.teleport(
-            {
-              x: team.shopPosition!.x + 0.5,
-              y: team.shopPosition!.y + 1,
-              z: team.shopPosition!.z + 0.5,
-            },
-            { dimension: dim },
-          );
-          } catch (e: any) {
-            console.error(`[BW] shop villager teleport failed: ${e?.message ?? e}`);
-          }
-        }, 10);
-      } catch (e: any) {
-        console.warn("Failed to spawn shop villager: " + e);
+      villager.setDynamicProperty("__bw_team_color", color);
+      for (const effect of ["slowness", "regeneration", "health_boost", "resistance"]) {
+        villager.addEffect(effect, SHOP_VILLAGER_EFFECT_TICKS, {
+          amplifier: 255,
+          showParticles: false,
+        });
       }
+    } catch (e: any) {
+      console.error(`[BW] setup shop villager failed: ${e?.message ?? e}`);
+      return;
+    }
+    const timerId = system.runInterval(() => {
+      if (!villager || !villager.isValid) {
+        system.clearRun(timerId);
+        return;
+      }
+      try {
+        villager.teleport(pos, { dimension: dim });
+      } catch {}
+    }, SHOP_VILLAGER_POS_TICKS);
   }
 
   /**
@@ -640,6 +658,7 @@ class GameManager {
     const inst = InstanceManager.getInstance(instanceId);
     if (!inst) return;
     this._runningGames.delete(instanceId);
+    delete this._instanceTick[instanceId];
     InstanceManager.setInstanceStatus(instanceId, "idle");
     this._removeScoreboard();
 
