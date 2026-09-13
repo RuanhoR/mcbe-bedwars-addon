@@ -16,6 +16,10 @@ Minecraft 基岩版**起床战争**玩法模组。
 - 基于 \`@minecraft/server\` 的 SAPI 脚本（mcx DSL 构建）
 - 由 [mbler](https://github.com/RuanhoR/mbler) 构建打包
 
+## 仓库
+
+GitHub: [mcbe-bedwars-addon](https://github.com/RuanhoR/mcbe-bedwars-addon)
+
 ## 安装
 
 选择与你的 Minecraft 版本匹配的 \`dist.mcaddon\` 下载后导入游戏即可。
@@ -30,6 +34,10 @@ A Bed Wars gameplay addon for Minecraft Bedrock Edition.
 - SAPI scripts built with the mcx DSL
 - Built with [mbler](https://github.com/RuanhoR/mbler)
 
+## Repository
+
+GitHub: [mcbe-bedwars-addon](https://github.com/RuanhoR/mcbe-bedwars-addon)
+
 ## Install
 
 Download the \`dist.mcaddon\` matching your Minecraft version and import it into the game.
@@ -41,7 +49,7 @@ Download the \`dist.mcaddon\` matching your Minecraft version and import it into
   base: "/bed-wars/",
   // mfd page 的输出目录 / 构建产物，mfd serve 的端口：
   distEntry: "./dist-page",
-  addon: "./dist_1.26.40.mcaddon",
+  addon: "./dist.mcaddon",
   isBeta: true,
   port: 9527,
   // override built-in ui strings:
