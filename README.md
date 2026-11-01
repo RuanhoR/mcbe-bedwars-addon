@@ -1,5 +1,8 @@
 # bedwar
 
+> [!NOTE]
+> This addon has moved into the [mcx-example-addon](https://github.com/RuanhoR/mcx-example-addon) monorepo and is now maintained there as a pnpm workspace package. This repository is kept for history.
+
 The `bedwar.mcddon` is mc addon base on mbler and mcx.
 
 ## Usage
